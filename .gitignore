@@ -8,6 +8,7 @@ dist
 build
 tags
 
+.python-version
 # test-related
 .coverage
 .cache

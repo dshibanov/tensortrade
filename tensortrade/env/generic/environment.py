@@ -18,7 +18,8 @@ import logging
 from typing import Dict, Any, Tuple
 from random import randint
 
-import gym
+# import gym
+import gymnasium as gym
 import numpy as np
 
 from tensortrade.core import TimeIndexed, Clock, Component
@@ -84,6 +85,7 @@ class TradingEnv(gym.Env, TimeIndexed):
         # Register the environment in Gym and fetch spec
         gym.envs.register(
             id='TensorTrade-v0',
+            entry_point='TradingEnv',
             max_episode_steps=max_episode_steps,
         )
         self.spec = gym.spec(env_id='TensorTrade-v0')

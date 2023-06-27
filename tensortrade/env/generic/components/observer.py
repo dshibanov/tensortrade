@@ -18,7 +18,9 @@ from abc import abstractmethod
 
 import numpy as np
 
-from gym.spaces import Space
+# from gym.spaces import Space
+from gymnasium.spaces import Space
+# from gymnasium import Space
 
 
 from tensortrade.core.component import Component
