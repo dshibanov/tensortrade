@@ -24,6 +24,8 @@ Pipfile
 # agent storage
 examples/agents
 examples/training_logs
+training_logs
 
 # virtual environment
 venv
+todo.md

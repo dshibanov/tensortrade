@@ -95,7 +95,7 @@ class Order(TimedIdentifiable, Observable):
         super().__init__()
         Observable.__init__(self)
 
-        quantity = quantity.contain(exchange_pair)
+        quantity = quantity.contain(exchange_pair, side)
         if quantity.size == 0:
             raise InvalidOrderQuantity(quantity)
 

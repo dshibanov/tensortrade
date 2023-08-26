@@ -277,6 +277,7 @@ class Wallet(Identifiable):
     @staticmethod
     def transfer(source: 'Wallet',
                  target: 'Wallet',
+                 order: 'Order',
                  quantity: 'Quantity',
                  commission: 'Quantity',
                  exchange_pair: 'ExchangePair',
@@ -327,10 +328,10 @@ class Wallet(Identifiable):
 
         if quantity.instrument == exchange_pair.pair.base:
             instrument = exchange_pair.pair.quote
-            converted_size = quantity.size / exchange_pair.price
+            converted_size = quantity.size / order.price
         else:
             instrument = exchange_pair.pair.base
-            converted_size = quantity.size * exchange_pair.price
+            converted_size = quantity.size * order.price
 
         converted = Quantity(instrument, converted_size, quantity.path_id).quantize()
 

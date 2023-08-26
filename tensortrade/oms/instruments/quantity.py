@@ -137,7 +137,7 @@ class Quantity:
         """
         return float(self.size)
 
-    def contain(self, exchange_pair: "ExchangePair"):
+    def contain(self, exchange_pair: "ExchangePair", side):
         """Contains the size of the quantity to be compatible with the settings
         of a given exchange.
 
@@ -153,7 +153,7 @@ class Quantity:
             A quantity compatible with the given exchange.
         """
         options = exchange_pair.exchange.options
-        price = exchange_pair.price
+        price = exchange_pair.price(side)
 
         if exchange_pair.pair.base == self.instrument:
             size = self.size

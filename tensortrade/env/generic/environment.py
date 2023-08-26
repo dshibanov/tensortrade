@@ -72,6 +72,7 @@ class TradingEnv(gym.Env, TimeIndexed):
                  **kwargs) -> None:
         super().__init__()
         self.clock = Clock()
+        self.config = kwargs["config"]
 
         self.action_scheme = action_scheme
         self.reward_scheme = reward_scheme
@@ -134,14 +135,21 @@ class TradingEnv(gym.Env, TimeIndexed):
             The information gathered after completing the step.
         """
         self.action_scheme.perform(self, action)
+        if self.end_of_episode == True:
+            self.action_scheme.close_all()
 
         obs = self.observer.observe(self)
+        last_row = self.observer.history.rows [next(reversed(self.observer.history.rows))]
+        if self.config["multy_symbol_env"] == True:
+            self.current_symbol_code = int(last_row["symbol_code"])
+            self.end_of_episode = last_row["end_of_episode"]
+            self.config["current_symbol_code"] = self.current_symbol_code
+
+        self.config["current_symbol_code"]=int(obs[-1][1])
         reward = self.reward_scheme.reward(self)
         done = self.stopper.stop(self)
         info = self.informer.info(self)
-
         self.clock.increment()
-
         return obs, reward, done, info
 
     def reset(self) -> 'np.array':
@@ -169,9 +177,15 @@ class TradingEnv(gym.Env, TimeIndexed):
                     c.reset()
 
         obs = self.observer.observe(self)
+	    # FIXME: obs[-1][1] --> def current_symbol_code()
+        last_row = self.observer.history.rows [next(reversed(self.observer.history.rows))]
 
+
+        if self.config["multy_symbol_env"] == True:
+            self.current_symbol_code = int(last_row["symbol_code"])
+            self.end_of_episode = last_row["end_of_episode"]
+            self.config["current_symbol_code"] = self.current_symbol_code
         self.clock.increment()
-
         return obs
 
     def render(self, **kwargs) -> None:

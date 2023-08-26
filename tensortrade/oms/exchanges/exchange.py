@@ -41,18 +41,26 @@ class ExchangeOptions:
 
     def __init__(self,
                  commission: float = 0.003,
+                 config={},
                  min_trade_size: float = 1e-6,
                  max_trade_size: float = 1e6,
                  min_trade_price: float = 1e-8,
                  max_trade_price: float = 1e8,
                  is_live: bool = False):
         self.commission = commission
+        self.config = config
         self.min_trade_size = min_trade_size
         self.max_trade_size = max_trade_size
         self.min_trade_price = min_trade_price
         self.max_trade_price = max_trade_price
         self.is_live = is_live
 
+    def spread(self, trading_pair):
+        for s in self.config["symbols"]:
+            if s["name"] == trading_pair:
+                return s["spread"]
+        # raise symbolNotFound
+        return 0
 
 class Exchange(Component, TimedIdentifiable):
     """An abstract exchange for use within a trading environment.
@@ -107,7 +115,7 @@ class Exchange(Component, TimedIdentifiable):
         """
         return list(self._price_streams.values())
 
-    def quote_price(self, trading_pair: "TradingPair") -> "Decimal":
+    def quote_price(self, trading_pair: "TradingPair", side) -> "Decimal":
         """The quote price of a trading pair on the exchange, denoted in the
         core instrument.
 
@@ -164,7 +172,7 @@ class Exchange(Component, TimedIdentifiable):
             order=order,
             base_wallet=portfolio.get_wallet(self.id, order.pair.base),
             quote_wallet=portfolio.get_wallet(self.id, order.pair.quote),
-            current_price=self.quote_price(order.pair),
+            current_price=order.price,
             options=self.options,
             clock=self.clock
         )

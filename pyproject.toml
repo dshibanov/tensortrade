@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "tensortrade"
-version = "0.1.0"
+version = "1.3.0"
 description = "tensortrade fork, fixes gym to gymnasium switch compatibility issues"
-authors = ["Dmitrii 108 <dmitry.shibanov@gmail.com>"]
+authors = ["Dmitrii  <dmitry.shibanov@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
@@ -13,7 +13,7 @@ pandas = ">=0.25.0"
 gym = ">=0.25.2"
 pyyaml = ">=5.1.2"
 stochastic = ">=0.6.0"
-tensorflow = ">=2.7.0"
+tensorflow = "2.12"
 ipython = ">=7.12.0"
 matplotlib = ">=3.1.1"
 plotly = ">=4.5.0"
@@ -28,28 +28,9 @@ dm-tree = "^0.1.8"
 scikit-image = "^0.21.0"
 lz4 = "^4.3.2"
 tensorflow-probability = "^0.20.1"
-torch = "^2.0.1+cpu"
+finplot = "^1.9.2"
 
 
-[[tool.poetry.source]]
-name = "torch"
-url = "https://download.pytorch.org/whl/cpu"
-default = false
-secondary = false
-
-
-[[tool.poetry.source]]
-name = "torchvision"
-url = "https://download.pytorch.org/whl/cpu"
-default = false
-secondary = false
-
-
-[[tool.poetry.source]]
-name = "torchaudio"
-url = "https://download.pytorch.org/whl/cpu"
-default = false
-secondary = false
 
 [build-system]
 requires = ["poetry-core"]

@@ -16,6 +16,7 @@ from tensortrade.oms.instruments import ExchangePair
 from tensortrade.oms.wallets import Portfolio
 from tensortrade.oms.orders import Order, OrderSpec, TradeSide, TradeType
 from tensortrade.oms.orders.criteria import Stop, Limit
+from decimal import Decimal
 
 
 def market_order(side: "TradeSide",
@@ -274,11 +275,12 @@ def proportion_order(portfolio: 'Portfolio',
         size = min(balance * proportion, balance)
         quantity = (size * source.instrument).quantize()
 
+        side = TradeSide.BUY if is_source_base else TradeSide.SELL
         params = {
             **base_params,
-            'side': TradeSide.BUY if is_source_base else TradeSide.SELL,
+            'side': side,
             'exchange_pair': exchange_pair,
-            'price': exchange_pair.price,
+            'price': exchange_pair.price(side) + Decimal(exchange.options.spread(exchange_pair.pair.quote.symbol)) if is_source_base else exchange_pair.price(side),
             'quantity': quantity
         }
 

@@ -88,7 +88,7 @@ class Broker(OrderListener, TimeIndexed):
 
                 order.attach(self)
                 order.execute()
-        
+	
         for order_id in executed_ids:
             self.unexecuted.remove(self.executed[order_id])
 

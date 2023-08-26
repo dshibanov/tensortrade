@@ -152,7 +152,7 @@ class Trade(TimedIdentifiable):
                 }
 
     def __str__(self):
-        data = ['{}={}'.format(k, v) for k, v in self.to_dict().items()]
+        data = ['{}={}\n'.format(k, v) for k, v in self.to_dict().items()]
         return '<{}: {}>'.format(self.__class__.__name__, ', '.join(data))
 
     def __repr__(self):

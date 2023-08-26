@@ -1,3 +1,4 @@
+import decimal
 import logging
 from decimal import Decimal
 
@@ -40,7 +41,7 @@ def execute_buy_order(order: 'Order',
     if order.type == TradeType.LIMIT and order.price < current_price:
         return None
 
-    filled = order.remaining.contain(order.exchange_pair)
+    filled = order.remaining.contain(order.exchange_pair, TradeSide.BUY)
 
     if order.type == TradeType.MARKET:
         scale = order.price / max(current_price, order.price)
@@ -62,6 +63,7 @@ def execute_buy_order(order: 'Order',
     transfer = Wallet.transfer(
         source=base_wallet,
         target=quote_wallet,
+        order=order,
         quantity=quantity,
         commission=commission,
         exchange_pair=order.exchange_pair,
@@ -75,7 +77,7 @@ def execute_buy_order(order: 'Order',
         side=TradeSide.BUY,
         trade_type=order.type,
         quantity=transfer.quantity,
-        price=transfer.price,
+        price=order.price,
         commission=transfer.commission
     )
 
@@ -113,7 +115,8 @@ def execute_sell_order(order: 'Order',
     if order.type == TradeType.LIMIT and order.price > current_price:
         return None
 
-    filled = order.remaining.contain(order.exchange_pair)
+    # filled = order.remaining.contain(order.exchange_pair)
+    filled = order.remaining.contain(order.exchange_pair, TradeSide.SELL)
 
     commission = options.commission * filled
 
@@ -132,6 +135,7 @@ def execute_sell_order(order: 'Order',
     transfer = Wallet.transfer(
         source=quote_wallet,
         target=base_wallet,
+        order=order,
         quantity=quantity,
         commission=commission,
         exchange_pair=order.exchange_pair,
@@ -145,7 +149,7 @@ def execute_sell_order(order: 'Order',
         side=TradeSide.SELL,
         trade_type=order.type,
         quantity=transfer.quantity,
-        price=transfer.price,
+        price=order.price,
         commission=transfer.commission
     )
 

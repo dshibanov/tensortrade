@@ -17,16 +17,14 @@ class ExchangePair:
         self.exchange = exchange
         self.pair = pair
 
-    @property
-    def price(self) -> "Decimal":
+    def price(self, side) -> "Decimal":
         """The quoted price of the trading pair. (`Decimal`, read-only)"""
-        return self.exchange.quote_price(self.pair)
+        return self.exchange.quote_price(self.pair, side)
 
-    @property
-    def inverse_price(self) -> "Decimal":
+    def inverse_price(self, side) -> "Decimal":
         """The inverse price of the trading pair. (`Decimal, read-only)"""
         quantization = Decimal(10) ** -self.pair.quote.precision
-        return Decimal(self.price ** Decimal(-1)).quantize(quantization)
+        return Decimal(self.price(side) ** Decimal(-1)).quantize(quantization)
 
     def __hash__(self):
         return hash(str(self))
