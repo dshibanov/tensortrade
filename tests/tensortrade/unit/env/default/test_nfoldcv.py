@@ -19,6 +19,10 @@ EVAL_END_DATE = '2022-11-12'  # TODO: replace this with your own end date
 
 from gymnasium.wrappers import EnvCompatibility
 
+import ray
+from ray import tune
+from ray.tune.registry import register_env
+
 def make_sin_feed(symbol_name='AssetX', symbol_code = 0, length=1000):
     x = np.arange(0, 2*np.pi, 2*np.pi / (length + 1))
     y = 50*np.sin(3*x) + 100
@@ -247,6 +251,8 @@ def test_spread():
     for i in range(num_symbols):
         if i == 2:
             symbols.append(make_flat_symbol("AST"+str(i), i, commission=0, spread=1.13))
+        elif i == 4:
+            symbols.append(make_flat_symbol("AST"+str(i), i, commission=0, spread=3.66))
         else:
             symbols.append(make_flat_symbol("AST"+str(i), i, commission=0, spread=0.01))
 
@@ -278,7 +284,7 @@ def test_spread():
     observations=[np.append(obs[-1], np.append([action, info['net_worth']], volumes))]
 
     # test feed
-    while done == False and step < 114:
+    while done == False and step < 214:
         assert pytest.approx(obs[-1][0], 0.001) == dataset.iloc[step].close
         assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
         assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode

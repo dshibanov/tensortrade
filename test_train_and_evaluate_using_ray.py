@@ -138,7 +138,7 @@ def evaluate():
     env_config_training = {
         "window_size": 14,  # We want to look at the last 14 samples (hours)
         "reward_window_size": 7,  # And calculate reward based on the actions taken in the next 7 hours
-        "max_allowed_loss": 0.10,  # If it goes past 10% loss during the iteration, we don't want to waste time on a "loser".
+        "max_allowed_loss": 0.30,  # If it goes past 10% loss during the iteration, we don't want to waste time on a "loser".
         "csv_filename": os.path.join(cwd, 'training.csv'),  # The variable that will be used to differentiate training and validation datasets
     }
 
@@ -155,7 +155,7 @@ def evaluate():
         metric='episode_reward_mean',
         mode='max',
         stop={
-            "training_iteration": 5  # Let's do 5 steps for each hyperparameter combination
+            "training_iteration": 15  # Let's do 5 steps for each hyperparameter combination
         },
         config={
             "env": "MyTrainingEnv",
@@ -175,7 +175,8 @@ def evaluate():
             "observation_filter": "MeanStdFilter",
             "model": {
                 # "fcnet_hiddens": FC_SIZE,  # Hyperparameter grid search defined above
-                "fcnet_hiddens": [256, 256],  # Hyperparameter grid search defined above
+                # "fcnet_hiddens": [256, 256],  # Hyperparameter grid search defined above
+                "fcnet_hiddens": [21, 34],  # Hyperparameter grid search defined above
             },
             # "sgd_minibatch_size": MINIBATCH_SIZE,  # Hyperparameter grid search defined above
             # "sgd_minibatch_size": 5,  # Hyperparameter grid search defined above
@@ -194,7 +195,6 @@ def evaluate():
 
 if __name__ == "__main__":
     evaluate()
-    
     # from gymnasium import Space
     # space = Space
     # print(space)
