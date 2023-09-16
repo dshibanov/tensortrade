@@ -10,13 +10,6 @@ from tensortrade.oms.services.execution.simulated import execute_order
 from tensortrade.oms.wallets import Wallet, Portfolio
 import tensortrade.env.default as default
 import ray.rllib.utils as rlutils
-
-# TICKER = 'AAPL'  # TODO: replace this with your own ticker
-# TRAIN_START_DATE = '2022-02-09'  # TODO: replace this with your own start date
-# TRAIN_END_DATE = '2022-03-09'  # TODO: replace this with your own end date
-# EVAL_START_DATE = '2022-10-01'  # TODO: replace this with your own end date
-# EVAL_END_DATE = '2022-11-12'  # TODO: replace this with your own end date
-
 from gymnasium.wrappers import EnvCompatibility
 import ray
 from ray import tune
@@ -408,15 +401,8 @@ def test_nfoldcv():
     pass
 
 if __name__ == "__main__":
-
-    # from gymnasium.spaces import Space, Discrete
-    # space = Discrete(2)
-    # print(space)
     # test_multy_symbols()
-
     # test_end_episodes()
     # test_comission()
     test_spread()
     # test_nfoldcv()
-    # make_flat_feed()
-    # print(make_flat_symbol('TEST'))
