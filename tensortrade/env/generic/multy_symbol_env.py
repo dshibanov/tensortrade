@@ -62,7 +62,7 @@ def is_end_of_episode(obs):
 
 def create_multy_symbol_env(config):
     dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
-    print(dataset.to_markdown())
+    # print(dataset.to_markdown())
     exchanges=[]
     wallets=[]
     # exchange_options = ExchangeOptions(commission=config["symbols"][-1]["commission"], spread=config["symbols"][-1]["spread"])
