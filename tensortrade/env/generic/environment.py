@@ -135,8 +135,6 @@ class TradingEnv(gym.Env, TimeIndexed):
             The information gathered after completing the step.
         """
         self.action_scheme.perform(self, action)
-        if self.end_of_episode == True:
-            self.action_scheme.close_all()
 
         obs = self.observer.observe(self)
         last_row = self.observer.history.rows [next(reversed(self.observer.history.rows))]
@@ -144,6 +142,9 @@ class TradingEnv(gym.Env, TimeIndexed):
             self.current_symbol_code = int(last_row["symbol_code"])
             self.end_of_episode = last_row["end_of_episode"]
             self.config["current_symbol_code"] = self.current_symbol_code
+
+        if self.end_of_episode == True:
+            self.action_scheme.close_all()
 
         self.config["current_symbol_code"]=int(obs[-1][1])
         reward = self.reward_scheme.reward(self)
