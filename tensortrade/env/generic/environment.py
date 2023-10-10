@@ -21,6 +21,7 @@ from random import randint
 # import gym
 import gymnasium as gym
 import numpy as np
+import pandas as pd
 
 from tensortrade.core import TimeIndexed, Clock, Component
 from tensortrade.env.generic import (
@@ -137,16 +138,6 @@ class TradingEnv(gym.Env, TimeIndexed):
         self.action_scheme.perform(self, action)
 
         obs = self.observer.observe(self)
-        last_row = self.observer.history.rows [next(reversed(self.observer.history.rows))]
-        if self.config["multy_symbol_env"] == True:
-            self.current_symbol_code = int(last_row["symbol_code"])
-            self.end_of_episode = last_row["end_of_episode"]
-            self.config["current_symbol_code"] = self.current_symbol_code
-
-        if self.end_of_episode == True:
-            self.action_scheme.close_all()
-
-        self.config["current_symbol_code"]=int(obs[-1][1])
         reward = self.reward_scheme.reward(self)
         done = self.stopper.stop(self)
         info = self.informer.info(self)
@@ -200,3 +191,50 @@ class TradingEnv(gym.Env, TimeIndexed):
     def close(self) -> None:
         """Closes the environment."""
         self.renderer.close()
+
+
+class MultySymbolTradingEnv(TradingEnv):
+
+    def step(self, action: Any) -> 'Tuple[np.array, float, bool, dict]':
+        """Makes one step through the environment.
+
+        Parameters
+        ----------
+        action : Any
+            An action to perform on the environment.
+
+        Returns
+        -------
+        `np.array`
+            The observation of the environment after the action being
+            performed.
+        float
+            The computed reward for performing the action.
+        bool
+            Whether or not the episode is complete.
+        dict
+            The information gathered after completing the step.
+        """
+
+
+        last_row_0 = self.observer.history.rows[next(reversed(self.observer.history.rows))]
+        if self.config["multy_symbol_env"] == True:
+            self.current_symbol_code = int(last_row_0["symbol_code"])
+            self.end_of_episode = last_row_0["end_of_episode"]
+            self.config["current_symbol_code"] = self.current_symbol_code
+
+            if "use_force_sell" in self.config and self.config["use_force_sell"] == True and self.end_of_episode == True:
+                print("force_sell")
+                self.action_scheme.force_sell()
+            else:
+                self.action_scheme.perform(self, action)
+
+        obs = self.observer.observe(self)
+        last_row = self.observer.history.rows[next(reversed(self.observer.history.rows))]
+        reward = self.reward_scheme.reward(self)
+        done = self.stopper.stop(self)
+        info = self.informer.info(self)
+
+        self.clock.increment()
+        return obs, reward, done, info
+

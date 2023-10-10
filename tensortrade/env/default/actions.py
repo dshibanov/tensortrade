@@ -190,7 +190,7 @@ class MultySymbolBSH(TensorTradeActionScheme):
         super().__init__()
         self.config = config
         self.listeners = []
-        self.action = 0
+        self.action = 1
         self.started = False
 
 
@@ -207,7 +207,6 @@ class MultySymbolBSH(TensorTradeActionScheme):
         current_symbol_code = self.config["current_symbol_code"]
         cash = portfolio.wallets[0]
         asset = portfolio.wallets[current_symbol_code+1]
-     
         if ((self.started == False) or (abs(action - self.action) > 0)):
             self.started = True
             src = cash if action == 0 else asset
@@ -222,30 +221,21 @@ class MultySymbolBSH(TensorTradeActionScheme):
 
         return [order]
 
-    def close_all(self):
-        # portfolio = self.action_scheme.portfolio
-        portfolio = self.portfolio
-        cash = portfolio.wallets[0]
-        orders=[]
-        for w in portfolio.wallets:
-            balance = w.total_balance
-            if balance.instrument != portfolio.base_instrument and balance.size > 0:
-                asset = portfolio.wallets[self.config["current_symbol_code"]+1]
-                order = proportion_order(portfolio, asset, cash, 1.0)
-                orders.append(order)
+    def force_sell(self):
+        # *forced by episode ending
+        action = 1
+        orders = self.get_orders(action, self.portfolio)
 
-        if orders:
-            for order in orders:
-                if order:
-                    logging.info('Step {}: {} {}'.format(order.step, order.side, order.quantity))
-                    self.broker.submit(order)
-            self.broker.update()
-            self.action = 0
-            self.started = False
+        for order in orders:
+            if order:
+                logging.info('Step {}: {} {}'.format(order.step, order.side, order.quantity))
+                self.broker.submit(order)
+
+        self.broker.update()
 
     def reset(self):
         super().reset()
-        self.action = 0
+        self.action = 1
         self.started = False
 
 class SimpleOrders(TensorTradeActionScheme):
