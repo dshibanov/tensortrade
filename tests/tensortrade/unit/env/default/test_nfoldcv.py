@@ -444,11 +444,56 @@ def test_multy_simbol_simple_use_force_sell():
 
     return
 
+def test_make_synthetic_symbol():
+    config = {"name": 'X',
+              "spread": 0.001,
+              "commission": 0.0001,
+              "code": 0,
+              "length": 31,
+              "max_episode_steps": 11,
+              # "max_episode_steps": 152,
+              "process": 'flat',
+              "price_value": 100}
+
+    s = make_synthetic_symbol(config)
+    print(s["feed"])
+
+    last_episode_start=0
+    for i, value in enumerate(s["feed"].iterrows(), 0):
+        index, row = value
+        if row["end_of_episode"] == True:
+            print("     > ", i)
+            ep_length = i - last_episode_start
+            last_episode_start = i+1
+            assert ep_length <= config["max_episode_steps"]
+
+
+def test_get_episode_lengths():
+    result = get_episode_lengths(31, 10)
+    # print(result, result.sum())
+    assert result.sum() == 31
+    result = get_episode_lengths(34, 10)
+    # print(result, result.sum())
+    assert result.sum() == 34
+    result = get_episode_lengths(37, 10)
+    # print(result, result.sum())
+    assert result.sum() == 37
+    result = get_episode_lengths(61, 13)
+    # print(result, result.sum())
+    assert result.sum() == 61
+    result = get_episode_lengths(39, 20)
+    # print(result, result.sum())
+    assert result.sum() == 39
+
 if __name__ == "__main__":
-    test_multy_symbols()
-    test_multy_simbol_simple_trade_close_manually()
-    test_multy_simbol_simple_use_force_sell()
-    test_end_episodes()
+    # test_multy_symbols()
+    # test_multy_simbol_simple_trade_close_manually()
+    # test_multy_simbol_simple_use_force_sell()
+    # test_end_episodes()
     # test_comission()
     # test_spread()
     # test_nfoldcv()
+    test_make_synthetic_symbol()
+    # test_get_episode_lengths()
+
+

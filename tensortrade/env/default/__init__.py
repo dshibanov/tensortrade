@@ -20,6 +20,10 @@ from tensortrade.oms.instruments import Instrument
 from tensortrade.oms.wallets import Wallet, Portfolio
 from gymnasium.wrappers import EnvCompatibility
 from pprint import pprint
+import random
+
+# turn off pandas SettingWithCopyWarning 
+pd.set_option('mode.chained_assignment', None)
 
 def create(portfolio: 'Portfolio',
            action_scheme: 'Union[actions.TensorTradeActionScheme, str]',
@@ -109,6 +113,20 @@ def create(portfolio: 'Portfolio',
     )
     return env
 
+def get_episode_lengths(num_rows, max_episode_length):
+    n = 1
+    while int(num_rows/n) > max_episode_length:
+        n+=1
+
+    rem = num_rows%n
+    ep_size = int(num_rows/n)
+    ep_lengths = np.empty(n, dtype = int)
+    ep_lengths.fill(ep_size)
+    while rem > 0:
+        ep_lengths[random.choice(np.where(ep_lengths == ep_size)[0])] += 1
+        rem -= 1
+
+    return ep_lengths
 
 def make_sin_feed(symbol_name='AssetX', symbol_code = 0, length=1000):
     x = np.arange(0, 2*np.pi, 2*np.pi / (length + 1))
@@ -118,9 +136,9 @@ def make_sin_feed(symbol_name='AssetX', symbol_code = 0, length=1000):
     xy.index.name = "datetime"
     return xy
 
-def make_flat_feed(symbol_name='AssetX', symbol_code = 0, length=1000, price=100):
+def make_flat_feed(symbol_name='AssetX', symbol_code = 0, length=1000, price_value=100):
     x = np.arange(0, 2*np.pi, 2*np.pi / (length + 1))
-    y = np.full(np.shape(x), float(price))
+    y = np.full(np.shape(x), float(price_value))
     xy = pd.DataFrame(data=np.transpose([y]), index=x).assign(symbol=pd.Series(np.full(len(x), symbol_name)).values).assign(symbol_code=pd.Series(np.full(len(x), symbol_code)).values)
     xy.columns=['close', 'symbol', 'symbol_code']
     xy.index.name = "datetime"
@@ -149,6 +167,26 @@ def make_flat_symbol(name, symbol_code=0, spread=0.01, commission=0.005, length=
     symbol["feed"] = make_flat_feed(symbol["name"], symbol_code, length, price).assign(end_of_episode=end_of_episode.values)
     symbol["feed"]["end_of_episode"].iloc[-1] = True
     return symbol
+
+def make_synthetic_symbol(config):
+    print(config)
+    symbol = config
+    end_of_episode = pd.Series(np.full(config["length"]+1, False))
+
+    if config["process"] == 'sin':
+        symbol["feed"] = make_sin_feed(symbol["name"], config["code"], config["length"]).assign(end_of_episode=end_of_episode.values)
+    elif config["process"] == 'flat':
+        symbol["feed"] = make_flat_feed(symbol["name"], config["code"], config["length"], config["price_value"]).assign(end_of_episode=end_of_episode.values)
+
+    ep_lengths = get_episode_lengths(config["length"], config["max_episode_steps"])
+    end_of_episode_index=0
+    for i, l in enumerate(ep_lengths,0):
+        end_of_episode_index += l
+        # FIXME: next line produces SettingWithCopyWarning, maybe somebody will
+        # be so nice to fix it
+        symbol["feed"]["end_of_episode"].iloc[end_of_episode_index] = True
+    return symbol
+
 
 def get_wallets_volumes(wallets):
     volumes = []
