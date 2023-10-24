@@ -68,12 +68,14 @@ def create(portfolio: 'Portfolio',
 
     action_scheme.portfolio = portfolio
 
+    config = kwargs.get("config", {})
     observer = observers.TensorTradeObserver(
         portfolio=portfolio,
         feed=feed,
         renderer_feed=kwargs.get("renderer_feed", None),
         window_size=window_size,
-        min_periods=min_periods
+        min_periods=min_periods,
+        num_service_cols= config.get('num_service_cols', 2)
     )
 
     stopper = stoppers.MaxLossStopper(

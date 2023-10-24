@@ -218,11 +218,13 @@ class TensorTradeObserver(Observer):
 
         initial_obs = self.feed.next()["external"]
         n_features = len(initial_obs.keys())
+        norm_n_features = n_features - kwargs.get('num_service_cols', 0)
 
         self._observation_space = Box(
             low=self._observation_lows,
             high=self._observation_highs,
-            shape=(self.window_size, n_features),
+            # shape=(self.window_size, n_features),
+            shape=(self.window_size, norm_n_features),
             dtype=self._observation_dtype
         )
 

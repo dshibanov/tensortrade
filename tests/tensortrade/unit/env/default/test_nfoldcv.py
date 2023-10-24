@@ -525,12 +525,12 @@ def test_get_episode_lengths():
 
 if __name__ == "__main__":
     test_multy_symbols()
-    test_multy_symbol_simple_trade_close_manually()
-    test_multy_symbol_simple_use_force_sell()
-    test_end_episodes()
+    # test_multy_symbol_simple_trade_close_manually()
+    # test_multy_symbol_simple_use_force_sell()
+    # test_end_episodes()
     # test_comission()
-    test_spread()
-    test_make_synthetic_symbol()
-    test_get_episode_lengths()
+    # test_spread()
+    # test_make_synthetic_symbol()
+    # test_get_episode_lengths()
 
 
