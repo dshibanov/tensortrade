@@ -234,7 +234,8 @@ def test_multy_symbols():
               "window_size": 3,
               "max_allowed_loss":100,
               "multy_symbol_env": True,
-              "use_force_sell": True
+              "use_force_sell": True,
+              "num_service_cols" : 2
              }
 
     dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
@@ -318,7 +319,8 @@ def test_multy_symbol_simple_trade_close_manually():
               "window_size": 1,
               "max_allowed_loss":100,
               "multy_symbol_env": True,
-              "use_force_sell": False
+              "use_force_sell": False,
+              "num_service_cols" : 2
              }
 
     dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
@@ -400,7 +402,8 @@ def test_multy_symbol_simple_use_force_sell():
               "window_size": 1,
               "max_allowed_loss":100,
               "multy_symbol_env": True,
-              "use_force_sell": True
+              "use_force_sell": True,
+              "num_service_cols" : 2
              }
 
     dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])

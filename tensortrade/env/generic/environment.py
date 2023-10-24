@@ -138,90 +138,6 @@ class TradingEnv(gym.Env, TimeIndexed):
         dict
             The information gathered after completing the step.
         """
-        self.action_scheme.perform(self, action)
-
-        obs = self.observer.observe(self)
-        reward = self.reward_scheme.reward(self)
-        done = self.stopper.stop(self)
-        info = self.informer.info(self)
-        self.clock.increment()
-        return obs, reward, done, info
-
-    def reset(self) -> 'np.array':
-        """Resets the environment.
-
-        Returns
-        -------
-        obs : `np.array`
-            The first observation of the environment.
-        """
-        if self.random_start_pct > 0.00:
-            size = len(self.observer.feed.process[-1].inputs[0].iterable)
-            random_start = randint(0, int(size * self.random_start_pct))
-        else:
-            random_start = 0
-
-        self.episode_id = str(uuid.uuid4())
-        self.clock.reset()
-
-        for c in self.components.values():
-            if hasattr(c, "reset"):
-                if isinstance(c, Observer):
-                    c.reset(random_start=random_start)
-                else:
-                    c.reset()
-
-        obs = self.observer.observe(self)
-        # last_row = self.observer.history.rows [next(reversed(self.observer.history.rows))]
-        # if self.config["multy_symbol_env"] == True:
-        #     self.current_symbol_code = int(last_row["symbol_code"])
-        #     self.end_of_episode = last_row["end_of_episode"]
-        #     self.config["current_symbol_code"] = self.current_symbol_code
-        self.clock.increment()
-        return obs
-
-    def render(self, **kwargs) -> None:
-        """Renders the environment."""
-        self.renderer.render(self, **kwargs)
-
-    def save(self) -> None:
-        """Saves the rendered view of the environment."""
-        self.renderer.save()
-
-    def close(self) -> None:
-        """Closes the environment."""
-        self.renderer.close()
-
-
-class MultySymbolTradingEnv(TradingEnv):
-
-    def update_params(self):
-        last_row_0 = self.observer.history.rows[next(reversed(self.observer.history.rows))]
-        self.current_symbol_code = int(last_row_0["symbol_code"])
-        self.end_of_episode = last_row_0["end_of_episode"]
-        self.config["current_symbol_code"] = self.current_symbol_code
-
-    def step(self, action: Any) -> 'Tuple[np.array, float, bool, dict]':
-        """Makes one step through the environment.
-
-        Parameters
-        ----------
-        action : Any
-            An action to perform on the environment.
-
-        Returns
-        -------
-        `np.array`
-            The observation of the environment after the action being
-            performed.
-        float
-            The computed reward for performing the action.
-        bool
-            Whether or not the episode is complete.
-        dict
-            The information gathered after completing the step.
-        """
-
 
         last_row_0 = self.observer.history.rows[next(reversed(self.observer.history.rows))]
         if self.config["multy_symbol_env"] == True:
@@ -239,40 +155,15 @@ class MultySymbolTradingEnv(TradingEnv):
 
         obs = self.observer.observe(self)
         self.update_params()
-        # print('obs: ', obs)
-        # print('shape of obs: ', np.shape(obs))
-        # print('type of obs: ', type(obs))
 
-        # TODO: here we should add some convention regarding our feed structure
-        # good idea is to use last N cols for service information and remove
-        # them from obs like this: 
-        # so, next line will need refactoring in nearest future
-        # obs = np.delete(obs, np.s_[1:3], axis=1)
-        # self.num_service_cols
-        # obs = np.delete(obs, np.s_[:-self.num_service_cols], axis=1)
-        obs = np.delete(obs, np.s_[-self.num_service_cols:], axis=1)
+        obs = np.delete(obs, np.s_[-self.config.get('num_service_cols', 2):], axis=1)
 
-        # проверить это место
-        #
-        # possible solution
-        # obs = np.delete(obs, np.s_[// remove last {self.num_service_cols} cols], axis=1)
-        #
-        # maybe will need alike modifications in another places of code
-
-        # print('after')
-        # print('obs: ', obs)
-        # print('shape of obs: ', np.shape(obs))
-        # print('type of obs: ', type(obs))
-        # last_row = self.observer.history.rows[next(reversed(self.observer.history.rows))]
-        reward = self.reward_scheme.reward(self)
+       reward = self.reward_scheme.reward(self)
         done = self.stopper.stop(self)
-
         info = self.informer.info(self)
-
-        # print('info ', info)
-
         self.clock.increment()
         return obs, reward, done, info
+
 
     def reset(self) -> 'np.array':
         """Resets the environment.
@@ -306,3 +197,21 @@ class MultySymbolTradingEnv(TradingEnv):
             self.config["current_symbol_code"] = self.current_symbol_code
         self.clock.increment()
         return obs
+
+    def render(self, **kwargs) -> None:
+        """Renders the environment."""
+        self.renderer.render(self, **kwargs)
+
+    def save(self) -> None:
+        """Saves the rendered view of the environment."""
+        self.renderer.save()
+
+    def close(self) -> None:
+        """Closes the environment."""
+        self.renderer.close()
+
+    def update_params(self):
+        last_row_0 = self.observer.history.rows[next(reversed(self.observer.history.rows))]
+        self.current_symbol_code = int(last_row_0["symbol_code"])
+        self.end_of_episode = last_row_0["end_of_episode"]
+        self.config["current_symbol_code"] = self.current_symbol_code

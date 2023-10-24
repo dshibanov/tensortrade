@@ -8,7 +8,7 @@ from . import stoppers
 from . import informers
 from . import renderers
 
-from tensortrade.env.generic import TradingEnv, MultySymbolTradingEnv
+from tensortrade.env.generic import TradingEnv
 from tensortrade.env.generic.components.renderer import AggregateRenderer
 
 import pandas as pd
@@ -95,8 +95,9 @@ def create(portfolio: 'Portfolio',
 
 
     if kwargs["config"]["multy_symbol_env"] == True:
-        environment = MultySymbolTradingEnv
-        print("multy_symbol_env == True")
+        # environment = MultySymbolTradingEnv
+        environment = TradingEnv
+        print("multy_symbol_env == True, but use TradingEnv")
     else:
         environment = TradingEnv
 
@@ -259,6 +260,5 @@ def create_multy_symbol_env(config):
     )
 
 
-    env.num_service_cols = 2
     env = EnvCompatibility(env)
     return env
