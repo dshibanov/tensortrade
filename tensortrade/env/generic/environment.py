@@ -152,7 +152,8 @@ class TradingEnv(gym.Env, TimeIndexed):
         self.update_params()
 
         # remove service cols from observation
-        obs = np.delete(obs, np.s_[-self.config.get('num_service_cols', 2):], axis=1)
+        if self.config["multy_symbol_env"] == True:
+            obs = np.delete(obs, np.s_[-self.config.get('num_service_cols', 2):], axis=1)
 
         reward = self.reward_scheme.reward(self)
         done = self.stopper.stop(self)
