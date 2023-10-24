@@ -247,14 +247,18 @@ def create_multy_symbol_env(config):
     action_scheme = actions.MultySymbolBSH(config)
 
     env = create(
-            feed=feed,
-            portfolio=portfolio,
-            action_scheme=action_scheme,
-            reward_scheme=reward_scheme,
-            renderer=[],
-            window_size=config["window_size"],
-            max_allowed_loss=config["max_allowed_loss"],
-            config=config)
+            feed=feed
+            ,portfolio=portfolio
+            ,action_scheme=action_scheme
+            ,reward_scheme=reward_scheme
+            ,renderer=[]
+            ,window_size=config["window_size"]
+            ,max_allowed_loss=config["max_allowed_loss"]
+            ,config=config
+            ,informer=informers.MultySymbolEnvInformer()
+    )
 
+
+    env.num_service_cols = 2
     env = EnvCompatibility(env)
     return env

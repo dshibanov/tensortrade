@@ -8,6 +8,8 @@ import ray
 from ray import tune
 from ray.tune.registry import register_env
 from tensortrade.env.default import *
+import math
+
 
 def test_end_episodes():
     num_symbols=5
@@ -43,31 +45,37 @@ def test_end_episodes():
     # test feed
     while done == False and step < 242:
         assert pytest.approx(obs[-1][0], 0.001) == dataset.iloc[step].close
-        assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
-        assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode
+        # assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
+        # assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode
 
         if is_end_of_episode(obs) == True:
-            obs, reward, done, truncated, info = env.step(action)
             volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
-            print('volumes: ', volumes)
             for v in volumes[-(len(volumes)-1):]:
-                # print(v)
                 assert v == 0
+
+            obs, reward, done, truncated, info = env.step(action)
+            # volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
+            # print('volumes: ', volumes)
+            # for v in volumes[-(len(volumes)-1):]:
+            #     # print(v)
+            #     assert v == 0
             step += 1
         else:
             obs, reward, done, truncated, info = env.step(action)
             step += 1
             volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
 
-        row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
+        # row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
+        row = np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
         observations.append(row)
         volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
     track = pd.DataFrame(observations)
     track.columns = np.append(['close',   'symbol_code',  'end_of_episode', 'action', 'net_worth'], instruments)
-    print(track.to_markdown())
+    # print(track.to_markdown())
     return
 
 def test_spread():
+    print("_______test_spread_____")
     num_symbols=5
     symbols=[]
     for i in range(num_symbols):
@@ -109,8 +117,8 @@ def test_spread():
     # test feed
     while done == False and step < 214:
         assert pytest.approx(obs[-1][0], 0.001) == dataset.iloc[step].close
-        assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
-        assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode
+        # assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
+        # assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode
 
         if step == 0:
             action=0
@@ -140,7 +148,8 @@ def test_spread():
             step += 1
             volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
 
-        row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
+        # row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
+        row = np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
         observations.append(row)
         volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
     track = pd.DataFrame(observations)
@@ -222,9 +231,10 @@ def test_multy_symbols():
         symbols.append(make_sin_symbol("Asset"+str(i), i))
     config = {"symbols": symbols,
               "reward_window_size": 7,
-              "window_size": 1,
+              "window_size": 3,
               "max_allowed_loss":100,
-              "multy_symbol_env": True
+              "multy_symbol_env": True,
+              "use_force_sell": True
              }
 
     dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
@@ -247,9 +257,10 @@ def test_multy_symbols():
 
     # test feed
     while done == False and step < 242:
+        print('obs:: ', obs[-1][0], dataset.iloc[step].close)
         assert pytest.approx(obs[-1][0], 0.001) == dataset.iloc[step].close
-        assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
-        assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode
+        # assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
+        # assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode
 
 
         if step == 10 or step == 20:
@@ -260,40 +271,48 @@ def test_multy_symbols():
 
         print(step, ': ', obs, dataset.iloc[step])
         if is_end_of_episode(obs) == True:
-            print('end_of_episode == True')
             volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
             for v in volumes[-(len(volumes)-1):]:
-                print(v)
-                # assert v == 0
+                assert v == 0
 
             obs, reward, done, truncated, info = env.step(action)
             step += 1
+            volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
+            # for v in volumes[-(len(volumes)-1):]:
+            #     print(v)
         else:
             obs, reward, done, truncated, info = env.step(action)
             step += 1
             volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
 
+        assert info["net_worth"] > 0
+        volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
 
-        row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
+        # check here that volumes doesn't have nan's
+        # print('loop by volumes...')
+        for v in volumes:
+            assert math.isnan(v) == False
+
+        # row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
+        row = np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
         observations.append(row)
         volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
+
     track = pd.DataFrame(observations)
     track.columns = np.append(['close',   'symbol_code',  'end_of_episode', 'action', 'net_worth'], instruments)
-    print(track.to_markdown())
-
+    # print(track.to_markdown())
     return
 
 
-def test_nfoldcv():
-    pass
 
-def test_multy_simbol_simple_trade_close_manually():
+def test_multy_symbol_simple_trade_close_manually():
     # * close orders manually (by agent) before end_of_episode    
 
     num_symbols=5
     symbols=[]
     for i in range(num_symbols):
         symbols.append(make_sin_symbol("Asset"+str(i), i))
+
     config = {"symbols": symbols,
               "reward_window_size": 7,
               "window_size": 1,
@@ -322,9 +341,10 @@ def test_multy_simbol_simple_trade_close_manually():
 
     # test feed
     while done == False and step < 242:
+        # print('obs ', obs)
         assert pytest.approx(obs[-1][0], 0.001) == dataset.iloc[step].close
-        assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
-        assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode
+        # assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
+        # assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode
 
         if (step > 37 and step < 42) or (step >= 79 and step < 82) or (step >= 119 and step < 123) or (step >= 159 and step < 164):
             action = 1
@@ -350,23 +370,24 @@ def test_multy_simbol_simple_trade_close_manually():
         for v in volumes[-(len(volumes)-1):]:
             net_worth += v*obs[-1][0]
 
-        row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
+        # print("info___: ", info)
+        # np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), 
+        # row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
+        row = np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
         observations.append(row)
         volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
 
     track = pd.DataFrame(observations)
     track.columns = np.append(['close',   'symbol_code',  'end_of_episode', 'action', 'net_worth'], instruments)
     print(track.to_markdown())
-
-
-    # check net_worth calc
     for index, row in track.iterrows():
-        # row["net_worth"]
         net_worth_test = sum([row[f"AST{i}"]*row["close"] for i in range(5)]) + row["USDT"]
+
+        # print(row["net_worth"], net_worth_test)
         assert pytest.approx(row["net_worth"], 0.001) == net_worth_test
     return
 
-def test_multy_simbol_simple_use_force_sell():
+def test_multy_symbol_simple_use_force_sell():
     # * don't close orders manually (by agent) before end_of_episode
     #  use force_sell functionality for that purposes
 
@@ -402,9 +423,15 @@ def test_multy_simbol_simple_use_force_sell():
 
     # test feed
     while done == False and step < 242:
+        # assert pytest.approx(obs[-1][0], 0.001) == dataset.iloc[step].close
+        print('obs ', obs)
         assert pytest.approx(obs[-1][0], 0.001) == dataset.iloc[step].close
-        assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
-        assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode
+        # assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
+        print(f"step: {step} close {obs[-1]} {dataset.iloc[step].close} info {info['symbol_code']}  {info['end_of_episode']} dataset: {dataset.iloc[step].symbol_code} {dataset.iloc[step].end_of_episode}")
+        assert pytest.approx(info["symbol_code"], 0.001) == dataset.iloc[step].symbol_code
+        # assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode
+        # print(' end of episode ', info["end_of_episode"], dataset.iloc[step].end_of_episode)
+        # assert pytest.approx(info["end_of_episode"], 0.001) == dataset.iloc[step].end_of_episode
 
         if (step > 57 and step < 63): #  or (step >= 79 and step < 82) or (step >= 119 and step < 123) or (step >= 159 and step < 164):
             # sell 
@@ -424,11 +451,18 @@ def test_multy_simbol_simple_use_force_sell():
         # assert net_worth value
         assert info["net_worth"] > 0
         volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
+
+        # check here that volumes doesn't have nan's
+        print('loop by volumes...')
+        for v in volumes:
+            assert math.isnan(v) == False
+
         net_worth=volumes[0]
         for v in volumes[-(len(volumes)-1):]:
             net_worth += v*obs[-1][0]
 
-        row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
+        # row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
+        row = np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
         observations.append(row)
         volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
 
@@ -438,13 +472,14 @@ def test_multy_simbol_simple_use_force_sell():
 
     # check net_worth calc
     for index, row in track.iterrows():
-        row["net_worth"]
         net_worth_test = sum([row[f"AST{i}"]*row["close"] for i in range(num_symbols)]) + row["USDT"]
+        # print(' row net worth',row["net_worth"], net_worth_test)
         assert pytest.approx(row["net_worth"], 0.001) == net_worth_test
 
     return
 
 def test_make_synthetic_symbol():
+    print("_______test_make_synthetic_symbol_____")
     config = {"name": 'X',
               "spread": 0.001,
               "commission": 0.0001,
@@ -486,14 +521,13 @@ def test_get_episode_lengths():
     assert result.sum() == 39
 
 if __name__ == "__main__":
-    # test_multy_symbols()
-    # test_multy_simbol_simple_trade_close_manually()
-    # test_multy_simbol_simple_use_force_sell()
-    # test_end_episodes()
+    test_multy_symbols()
+    test_multy_symbol_simple_trade_close_manually()
+    test_multy_symbol_simple_use_force_sell()
+    test_end_episodes()
     # test_comission()
-    # test_spread()
-    # test_nfoldcv()
+    test_spread()
     test_make_synthetic_symbol()
-    # test_get_episode_lengths()
+    test_get_episode_lengths()
 
 
