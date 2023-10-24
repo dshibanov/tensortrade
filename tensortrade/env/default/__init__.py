@@ -75,7 +75,7 @@ def create(portfolio: 'Portfolio',
         renderer_feed=kwargs.get("renderer_feed", None),
         window_size=window_size,
         min_periods=min_periods,
-        num_service_cols= config.get('num_service_cols', 2)
+        num_service_cols = 0 if config.get("multy_symbol_env", False) == True else config.get('num_service_cols', 2)
     )
 
     stopper = stoppers.MaxLossStopper(
