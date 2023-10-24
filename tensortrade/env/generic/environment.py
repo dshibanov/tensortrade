@@ -142,11 +142,6 @@ class TradingEnv(gym.Env, TimeIndexed):
         last_row_0 = self.observer.history.rows[next(reversed(self.observer.history.rows))]
         if self.config["multy_symbol_env"] == True:
             self.update_params()
-            # self.current_symbol_code = int(last_row_0["symbol_code"])
-            # self.end_of_episode = last_row_0["end_of_episode"]
-            # self.config["current_symbol_code"] = self.current_symbol_code
-            # print('close {}')
-
             if "use_force_sell" in self.config and self.config["use_force_sell"] == True and self.end_of_episode == True:
                 print("force_sell")
                 self.action_scheme.force_sell()
@@ -156,9 +151,10 @@ class TradingEnv(gym.Env, TimeIndexed):
         obs = self.observer.observe(self)
         self.update_params()
 
+        # remove service cols from observation
         obs = np.delete(obs, np.s_[-self.config.get('num_service_cols', 2):], axis=1)
 
-       reward = self.reward_scheme.reward(self)
+        reward = self.reward_scheme.reward(self)
         done = self.stopper.stop(self)
         info = self.informer.info(self)
         self.clock.increment()
@@ -197,6 +193,7 @@ class TradingEnv(gym.Env, TimeIndexed):
             self.config["current_symbol_code"] = self.current_symbol_code
         self.clock.increment()
         return obs
+
 
     def render(self, **kwargs) -> None:
         """Renders the environment."""
