@@ -11,6 +11,9 @@ from tensortrade.env.default import *
 import math
 
 
+# TODO: please rename this file to test_env.py
+# or better move these tests to existed one
+
 def test_end_episodes():
     num_symbols=5
     symbols=[]
@@ -339,7 +342,9 @@ def test_multy_symbol_simple_trade_close_manually():
         balance = w.total_balance
         instruments.append(str(balance.instrument))
         volumes.append(float(balance.size))
-    observations=[np.append(obs[-1], np.append([action, info['net_worth']], volumes))]
+
+
+    observations=[np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))]
 
     # test feed
     while done == False and step < 242:
@@ -385,7 +390,7 @@ def test_multy_symbol_simple_trade_close_manually():
     for index, row in track.iterrows():
         net_worth_test = sum([row[f"AST{i}"]*row["close"] for i in range(5)]) + row["USDT"]
 
-        # print(row["net_worth"], net_worth_test)
+        print(row["net_worth"], net_worth_test)
         assert pytest.approx(row["net_worth"], 0.001) == net_worth_test
     return
 
@@ -422,7 +427,7 @@ def test_multy_symbol_simple_use_force_sell():
         balance = w.total_balance
         instruments.append(str(balance.instrument))
         volumes.append(float(balance.size))
-    observations=[np.append(obs[-1], np.append([action, info['net_worth']], volumes))]
+    observations=[np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))]
 
     # test feed
     while done == False and step < 242:
@@ -523,14 +528,41 @@ def test_get_episode_lengths():
     # print(result, result.sum())
     assert result.sum() == 39
 
+def test_observation_shape():
+    num_symbols=5
+    symbols=[]
+    for i in range(num_symbols):
+        symbols.append(make_sin_symbol("Asset"+str(i), i))
+    config = {"symbols": symbols,
+              "reward_window_size": 7,
+              "window_size": 3,
+              "max_allowed_loss":100,
+              "multy_symbol_env": True,
+              "use_force_sell": True,
+              "num_service_cols" : 2
+             }
+
+    dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
+    env = create_multy_symbol_env(config)
+    action = 0 # 0 - buy asset, 1 - sell asset
+    obs,_ = env.reset()
+
+    print(obs, np.shape(obs), env.env.observer.observation_space)
+    assert np.shape(obs) == env.env.observer.observation_space.shape
+    obs, reward, done, truncated, info = env.step(0)
+    print(obs, np.shape(obs), env.env.observer.observation_space)
+    assert np.shape(obs) == env.env.observer.observation_space.shape
+
+
 if __name__ == "__main__":
+    test_observation_shape()
     test_multy_symbols()
-    # test_multy_symbol_simple_trade_close_manually()
-    # test_multy_symbol_simple_use_force_sell()
-    # test_end_episodes()
+    test_multy_symbol_simple_trade_close_manually()
+    test_multy_symbol_simple_use_force_sell()
+    test_end_episodes()
     # test_comission()
-    # test_spread()
-    # test_make_synthetic_symbol()
-    # test_get_episode_lengths()
+    test_spread()
+    test_make_synthetic_symbol()
+    test_get_episode_lengths()
 
 

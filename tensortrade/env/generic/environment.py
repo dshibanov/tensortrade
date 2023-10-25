@@ -193,6 +193,11 @@ class TradingEnv(gym.Env, TimeIndexed):
             self.end_of_episode = last_row["end_of_episode"]
             self.config["current_symbol_code"] = self.current_symbol_code
         self.clock.increment()
+
+        # remove service cols from observation
+        if self.config["multy_symbol_env"] == True:
+            obs = np.delete(obs, np.s_[-self.config.get('num_service_cols', 2):], axis=1)
+
         return obs
 
 
