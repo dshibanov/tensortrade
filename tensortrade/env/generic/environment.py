@@ -143,7 +143,6 @@ class TradingEnv(gym.Env, TimeIndexed):
         if self.config["multy_symbol_env"] == True:
             self.update_params()
             if "use_force_sell" in self.config and self.config["use_force_sell"] == True and self.end_of_episode == True:
-                print("force_sell")
                 self.action_scheme.force_sell()
             else:
                 self.action_scheme.perform(self, action)

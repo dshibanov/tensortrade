@@ -50,6 +50,11 @@ def test_end_episodes():
         assert pytest.approx(obs[-1][0], 0.001) == dataset.iloc[step].close
         # assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
         # assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode
+        #
+        if step == 38:
+            action = 1
+        else:
+            action = 0
 
         if is_end_of_episode(obs) == True:
             volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
@@ -74,7 +79,7 @@ def test_end_episodes():
         volumes = get_wallets_volumes(env.env.action_scheme.portfolio.wallets)
     track = pd.DataFrame(observations)
     track.columns = np.append(['close',   'symbol_code',  'end_of_episode', 'action', 'net_worth'], instruments)
-    # print(track.to_markdown())
+    print(track.to_markdown())
     return
 
 def test_spread():
@@ -555,14 +560,14 @@ def test_observation_shape():
 
 
 if __name__ == "__main__":
-    test_observation_shape()
-    test_multy_symbols()
-    test_multy_symbol_simple_trade_close_manually()
-    test_multy_symbol_simple_use_force_sell()
+    # test_observation_shape()
+    # test_multy_symbols()
+    # test_multy_symbol_simple_trade_close_manually()
+    # test_multy_symbol_simple_use_force_sell()
     test_end_episodes()
-    # test_comission()
-    test_spread()
-    test_make_synthetic_symbol()
-    test_get_episode_lengths()
+    # # test_comission()
+    # test_spread()
+    # test_make_synthetic_symbol()
+    # test_get_episode_lengths()
 
 
