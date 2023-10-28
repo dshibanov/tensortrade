@@ -8,6 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "3.10.1"
 pytest = "^7.4.0"
+finplot = { git = "git@github.com:dshibanov/finplot.git", branch = "master" }
 numpy = ">=1.17.0"
 pandas = ">=0.25.0"
 gym = ">=0.25.2"
@@ -22,14 +23,13 @@ deprecated = ">=1.2.13"
 ta = "^0.10.2"
 pandas-ta = "^0.3.14b0"
 gymnasium = "^0.28.1"
-ray = "^2.5.1"
+ray = {extras = ["tune"], version = "^2.7.1"}
 tabulate = "^0.9.0"
 dm-tree = "^0.1.8"
 scikit-image = "^0.21.0"
 lz4 = "^4.3.2"
 tensorflow-probability = "^0.20.1"
-finplot = "^1.9.2"
-
+# finplot = "^1.9.2"
 
 
 [build-system]
