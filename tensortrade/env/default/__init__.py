@@ -21,6 +21,7 @@ from tensortrade.oms.wallets import Wallet, Portfolio
 from gymnasium.wrappers import EnvCompatibility
 from pprint import pprint
 import random
+import math
 
 # turn off pandas SettingWithCopyWarning 
 pd.set_option('mode.chained_assignment', None)
@@ -172,7 +173,6 @@ def make_flat_symbol(name, symbol_code=0, spread=0.01, commission=0.005, length=
     return symbol
 
 def make_synthetic_symbol(config):
-    print(config)
     symbol = config
     end_of_episode = pd.Series(np.full(config["length"]+1, False))
 
@@ -181,15 +181,83 @@ def make_synthetic_symbol(config):
     elif config["process"] == 'flat':
         symbol["feed"] = make_flat_feed(symbol["name"], config["code"], config["length"], config["price_value"]).assign(end_of_episode=end_of_episode.values)
 
-    ep_lengths = get_episode_lengths(config["length"], config["max_episode_steps"])
-    end_of_episode_index=0
-    for i, l in enumerate(ep_lengths,0):
-        end_of_episode_index += l
-        # FIXME: next line produces SettingWithCopyWarning, maybe somebody will
-        # be so nice to fix it
-        symbol["feed"]["end_of_episode"].iloc[end_of_episode_index] = True
+    if config["shatter_on_episode_on_creation"] == True:
+        ep_lengths = get_episode_lengths(config["length"], config["max_episode_steps"])
+        end_of_episode_index=0
+        for i, l in enumerate(ep_lengths,0):
+            end_of_episode_index += l
+            # FIXME: next line produces SettingWithCopyWarning, maybe somebody will
+            # be so nice to fix it
+            symbol["feed"]["end_of_episode"].iloc[end_of_episode_index] = True
+
+    symbol["feed"]["end_of_episode"].iloc[-1] = True
     return symbol
 
+def get_episodes_lengths(feed):
+    lens = []
+    steps_in_this_episode=0
+    for i,row in feed.iterrows():
+        steps_in_this_episode+=1
+        if row.loc["end_of_episode"] == True:
+            lens.append(steps_in_this_episode)
+            steps_in_this_episode = 0
+    return lens
+
+
+def make_folds(config):
+    # NFOLDCV_MODE_PROPORTIONAL
+    for i, s in enumerate(config["symbols"], 0):
+        feed_length = len(s["feed"])
+        fold_length = int(feed_length / config["num_folds"])
+        raw_folds=[[i*fold_length,(i+1)*fold_length] for i in range(config["num_folds"])]
+        raw_folds[-1][1] = feed_length
+        start, end = raw_folds[-1]
+        all_episodes=[]
+        folds=[]
+        for start, end in raw_folds:
+            if 1 == 1 or (end - start >= config["min_episode_length"] and end - start <= config["max_episode_length"]):
+                num_of_episodes = math.ceil((end - start) / config["max_episode_length"])
+                episodes=[[start +i*(config["max_episode_length"]), start + (i+1)*config["max_episode_length"]] for i in range(num_of_episodes)]
+                episodes[-1][1] = end
+                a = len(all_episodes)
+                b = a + len(episodes)
+                all_episodes = [*all_episodes, *episodes]
+                folds.append([a,b])
+            else:
+                raise ValueError('fold length is less then min_episode_length or bigger than max_episode_length. ¯\_(ツ)_/¯')
+
+        s["folds"] = folds
+        s["episodes"] = all_episodes
+
+    return config
+
+
+def make_symbols(num_symbols=5, length=666, shatter_on_episode_on_creation = False):
+    symbols=[]
+    for i in range(num_symbols):
+        spread = 0.01
+        commission=0
+        if i == 2:
+            commission=0
+            spread=1.13
+        elif i == 4:
+            commission=0
+            spread=3.66
+
+        config = {"name": "AST"+str(i),
+              "spread": spread,
+              "commission": commission,
+              "code": i,
+              "length": length,
+              "max_episode_steps": 11,
+              # "max_episode_steps": 152,
+              # "process": 'flat',
+              "process": 'sin',
+              "price_value": 100,
+              "shatter_on_episode_on_creation": shatter_on_episode_on_creation}
+
+        symbols.append(make_synthetic_symbol(config))
+    return symbols
 
 def get_wallets_volumes(wallets):
     volumes = []
@@ -202,9 +270,49 @@ def is_end_of_episode(obs):
     return obs[-1][-1]
 
 
+def get_train_test_feed(config, train_only=False, test_only=False):
+    if train_only == True and test_only == True:
+            raise ValueError('Wrong settings, no folds will be retuned    ¯\_(ツ)_/¯')
+
+    test_fold_index = config["test_fold_index"]
+    symbols = config["symbols"]
+    train_feed = pd.DataFrame()
+    test_feed = pd.DataFrame()
+    for s in symbols:
+        train_episodes=[]
+        test_episodes=[]
+        for fold_num in range(config["num_folds"]):
+            if fold_num == test_fold_index:
+                test_episodes.extend(s["episodes"][s["folds"][fold_num][0]: s["folds"][fold_num][1]])
+            else:
+                train_episodes.extend(s["episodes"][s["folds"][fold_num][0]: s["folds"][fold_num][1]])
+
+        if not test_only:
+            for e in train_episodes:
+                train_feed = pd.concat([train_feed, s["feed"].iloc[e[0]: e[1]]])
+                train_feed.iloc[-1, train_feed.columns.get_loc('end_of_episode')] = True
+
+        if not train_only:
+            for e in test_episodes:
+                test_feed = pd.concat([test_feed, s["feed"].iloc[e[0]: e[1]]])
+                test_feed.iloc[-1, test_feed.columns.get_loc('end_of_episode')] = True
+
+    return train_feed, test_feed
+
+
+def get_dataset(config):
+    if config["make_folds"] == True:
+        print('should make folds')
+        if config["test"] == True:
+            return(get_train_test_feed(config, test_only=True))
+        else:
+            return(get_train_test_feed(config, train_only=True))
+    else:
+        return (pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))]), )
+
+
 def create_multy_symbol_env(config):
-    dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
-    print(dataset.to_markdown())
+    dataset = get_dataset(config)[0 if config["test"] == False else 1]
     exchanges=[]
     wallets=[]
     # exchange_options = ExchangeOptions(commission=config["symbols"][-1]["commission"], spread=config["symbols"][-1]["spread"])

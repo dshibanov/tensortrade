@@ -14,26 +14,84 @@ import math
 # TODO: please rename this file to test_env.py
 # or better move these tests to existed one
 
+# @pytest.mark.skip()
+def test_get_train_test_feed():
+
+    config = {
+              "max_episode_length": 27, # smaller or equal is ok, bigger is not,
+              "min_episode_length": 10, # bigger or equal is ok, smaller is not
+              "make_folds":True,
+              "num_folds": 7,
+              "symbols": make_symbols(1, 100, False),
+              "cv_mode": 'proportional',
+              "test_fold_index": 3,
+              "reward_window_size": 1,
+              "window_size": 2,
+              "max_allowed_loss": 100,
+              "use_force_sell": True,
+              "multy_symbol_env": True
+             }
+
+    config = make_folds(config)
+
+    all_lens = []
+    for s in config["symbols"]:
+        lens = get_episodes_lengths(s["feed"])
+        all_lens = all_lens + lens
+
+    assert min(all_lens) == 101
+
+    print('ok >>>> ')
+    train, test = get_train_test_feed(config)
+    all_lens = get_episodes_lengths(train)
+    all_lens += get_episodes_lengths(test)
+
+    print(min(all_lens))
+    print(max(all_lens))
+    assert config["max_episode_length"] >= max(all_lens)
+    assert config["min_episode_length"] <= min(all_lens)
+
+
+    for s in config["symbols"]:
+        last_episode_end=0
+        assert len(s["folds"]) > 0
+        for f in s["folds"]:
+            episodes = s["episodes"][f[0]:f[1]]
+            for e in episodes:
+                if e[0] > 0:
+                    assert last_episode_end == e[0]
+                last_episode_end = e[1]
+
+    train, test = get_train_test_feed(config)
+
+    all_lens = []
+    all_lens += get_episodes_lengths(train)
+    print('lens of train ', all_lens)
+    all_lens += get_episodes_lengths(test)
+    print('all_lens train + test ', all_lens)
+
+    assert config["max_episode_length"] >= max(all_lens)
+    assert config["min_episode_length"] <= min(all_lens)
+
+
 def test_end_episodes():
     num_symbols=5
-    symbols=[]
-    for i in range(num_symbols):
-        symbols.append(make_sin_symbol("Asset"+str(i), i))
-    config = {"symbols": symbols,
+    config = {
               "reward_window_size": 7,
+              "symbols": make_symbols(num_symbols, 666, True),
               "window_size": 1,
               "max_allowed_loss":100,
               "multy_symbol_env": True,
-              "use_force_sell": True
+              "use_force_sell": True,
+              "make_folds": False,
+              "test": False
              }
 
     dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
-
     env = create_multy_symbol_env(config)
     action = 0 # do nothing
     obs,_ = env.reset()
     info = env.env.informer.info(env.env)
-
     track=[]
     done = False
     step = 0
@@ -94,12 +152,16 @@ def test_spread():
         else:
             symbols.append(make_flat_symbol("AST"+str(i), i, commission=0, spread=0.01))
 
-    config = {"symbols": symbols,
+    config = {
+              # "symbols": make_symbols(num_symbols, 100, True),
+              "symbols": symbols,
               "reward_window_size": 7,
               "window_size": 1,
               "max_allowed_loss":100,
               "multy_symbol_env": True,
-              "use_force_sell": True
+              "use_force_sell": True,
+              "make_folds": False,
+              "test": False
              }
     exchange_options = ExchangeOptions(commission=config["symbols"][-1]["commission"],
                                        # spread=config["symbols"][-1]["spread"])
@@ -237,13 +299,16 @@ def test_multy_symbols():
     symbols=[]
     for i in range(num_symbols):
         symbols.append(make_sin_symbol("Asset"+str(i), i))
-    config = {"symbols": symbols,
+    config = {
+              "symbols": make_symbols(num_symbols, 666, True),
               "reward_window_size": 7,
               "window_size": 3,
               "max_allowed_loss":100,
               "multy_symbol_env": True,
               "use_force_sell": True,
-              "num_service_cols" : 2
+              "num_service_cols" : 2,
+              "make_folds": False,
+              "test": False
              }
 
     dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
@@ -318,17 +383,16 @@ def test_multy_symbol_simple_trade_close_manually():
     # * close orders manually (by agent) before end_of_episode    
 
     num_symbols=5
-    symbols=[]
-    for i in range(num_symbols):
-        symbols.append(make_sin_symbol("Asset"+str(i), i))
-
-    config = {"symbols": symbols,
+    config = {
+              "symbols": make_symbols(num_symbols, 666, True),
               "reward_window_size": 7,
               "window_size": 1,
               "max_allowed_loss":100,
               "multy_symbol_env": True,
               "use_force_sell": False,
-              "num_service_cols" : 2
+              "num_service_cols" : 2,
+              "make_folds": False,
+              "test": False
              }
 
     dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
@@ -404,16 +468,16 @@ def test_multy_symbol_simple_use_force_sell():
     #  use force_sell functionality for that purposes
 
     num_symbols=5
-    symbols=[]
-    for i in range(num_symbols):
-        symbols.append(make_sin_symbol("Asset"+str(i), i))
-    config = {"symbols": symbols,
+    config = {
+              "symbols": make_symbols(num_symbols, 666, True),
               "reward_window_size": 7,
               "window_size": 1,
               "max_allowed_loss":100,
               "multy_symbol_env": True,
               "use_force_sell": True,
-              "num_service_cols" : 2
+              "num_service_cols" : 2,
+              "make_folds": False,
+              "test": False
              }
 
     dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
@@ -503,6 +567,7 @@ def test_make_synthetic_symbol():
               "process": 'flat',
               "price_value": 100}
 
+    config["shatter_on_episode_on_creation"] = True
     s = make_synthetic_symbol(config)
     print(s["feed"])
 
@@ -535,16 +600,16 @@ def test_get_episode_lengths():
 
 def test_observation_shape():
     num_symbols=5
-    symbols=[]
-    for i in range(num_symbols):
-        symbols.append(make_sin_symbol("Asset"+str(i), i))
-    config = {"symbols": symbols,
+    config = {
+              "symbols": make_symbols(num_symbols, 666, False),
               "reward_window_size": 7,
               "window_size": 3,
               "max_allowed_loss":100,
               "multy_symbol_env": True,
               "use_force_sell": True,
-              "num_service_cols" : 2
+              "num_service_cols" : 2,
+              "make_folds": False,
+              "test": False
              }
 
     dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
@@ -559,15 +624,54 @@ def test_observation_shape():
     assert np.shape(obs) == env.env.observer.observation_space.shape
 
 
+def test_get_dataset():
+    num_symbols=5
+    config = {
+              "max_episode_length": 27, # smaller or equal is ok, bigger is not,
+              "min_episode_length": 10, # bigger or equal is ok, smaller is not
+              "symbols": make_symbols(num_symbols, 666, False),
+              "reward_window_size": 7,
+              "window_size": 3,
+              "max_allowed_loss":100,
+              "multy_symbol_env": True,
+              "use_force_sell": True,
+              "num_service_cols" : 2,
+              "make_folds": False, 
+             }
+
+
+
+    r = get_dataset(config)
+    episodes_lengths = get_episodes_lengths(r[0])
+    print(f'episodes {episodes_lengths} \n min {min(episodes_lengths)} max {max(episodes_lengths)}')
+    # assert max(episodes_lengths) <= config["max_episode_length"]
+    # assert min(episodes_lengths) >= config["min_episode_length"]
+    config["make_folds"] = True
+    config["test"] = True
+    config["test_fold_index"] = 3
+    config["num_folds"] = 7
+    config = make_folds(config)
+    r = get_dataset(config)
+    episodes_lengths = get_episodes_lengths(r[1])
+    print(f'episodes {episodes_lengths} \n min {min(episodes_lengths)} max {max(episodes_lengths)}')
+    assert max(episodes_lengths) <= config["max_episode_length"]
+    assert min(episodes_lengths) >= config["min_episode_length"]
+    config["test"] = False
+    r = get_dataset(config)
+    episodes_lengths = get_episodes_lengths(r[0])
+    print(f'episodes {episodes_lengths} \n min {min(episodes_lengths)} max {max(episodes_lengths)}')
+    assert max(episodes_lengths) <= config["max_episode_length"]
+    assert min(episodes_lengths) >= config["min_episode_length"]
+
 if __name__ == "__main__":
+    test_get_dataset()
+    # test_get_train_test_feed()
     # test_observation_shape()
     # test_multy_symbols()
     # test_multy_symbol_simple_trade_close_manually()
     # test_multy_symbol_simple_use_force_sell()
-    test_end_episodes()
+    # test_end_episodes()
     # # test_comission()
     # test_spread()
     # test_make_synthetic_symbol()
     # test_get_episode_lengths()
-
-
