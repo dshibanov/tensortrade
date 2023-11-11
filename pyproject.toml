@@ -35,3 +35,10 @@ tensorflow-probability = "^0.20.1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+
+[tool.poe.tasks]
+install-torch = "pip install torch==2.0.1+cpu torchvision torchaudio -f https://download.pytorch.org/whl/torch_stable.html"
+pip-list = "pip list"
+pip-upgrade = "pip install --upgrade pip"
+
