@@ -67,8 +67,18 @@ class SimpleProfit(TensorTradeRewardScheme):
             `window_size` time steps.
         """
         net_worths = [nw['net_worth'] for nw in portfolio.performance.values()]
+        l = len(net_worths)
+        # print(f'len(net_worths) {l}')
         if len(net_worths) > 1:
-            return net_worths[-1] / net_worths[-min(len(net_worths), self._window_size + 1)] - 1.0
+            i = -min(len(net_worths), self._window_size + 1)
+            b = net_worths[i]
+            if b == 0:
+                print('b == 0, no money.. ')
+                reward = 0
+            else:
+                reward = net_worths[-1] / b - 1.0
+
+            return reward
         else:
             return 0.0
 

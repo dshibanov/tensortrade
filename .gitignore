@@ -29,3 +29,6 @@ training_logs
 # virtual environment
 venv
 todo.md
+<MLFL*
+mlruns
+mlartifacts

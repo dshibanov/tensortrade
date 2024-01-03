@@ -15,7 +15,7 @@
 import uuid
 import logging
 
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, TypeVar
 from random import randint
 
 # import gym
@@ -32,7 +32,7 @@ from tensortrade.env.generic import (
     Informer,
     Renderer
 )
-
+ObsType = TypeVar("ObsType")
 
 # TODO: put all MultySymbolTradingEnv functionality to TradingEnv
 #       with different logics depend on flag "multy_symbol_env"
@@ -140,7 +140,7 @@ class TradingEnv(gym.Env, TimeIndexed):
         """
 
         last_row_0 = self.observer.history.rows[next(reversed(self.observer.history.rows))]
-        if self.config["multy_symbol_env"] == True:
+        if self.config.get('multy_symbol_env', False) == True:
             self.update_params()
             if "use_force_sell" in self.config and self.config["use_force_sell"] == True and self.end_of_episode == True:
                 self.action_scheme.force_sell()
@@ -151,7 +151,7 @@ class TradingEnv(gym.Env, TimeIndexed):
         self.update_params()
 
         # remove service cols from observation
-        if self.config["multy_symbol_env"] == True:
+        if self.config.get('multy_symbol_env', False) == True:
             obs = np.delete(obs, np.s_[-self.config.get('num_service_cols', 2):], axis=1)
 
         reward = self.reward_scheme.reward(self)
@@ -161,7 +161,11 @@ class TradingEnv(gym.Env, TimeIndexed):
         return obs, reward, done, info
 
 
-    def reset(self) -> 'np.array':
+    def reset(self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[ObsType, dict[str, Any]]:  # type: ignore
         """Resets the environment.
 
         Returns
@@ -169,6 +173,12 @@ class TradingEnv(gym.Env, TimeIndexed):
         obs : `np.array`
             The first observation of the environment.
         """
+
+
+        # Initialize the RNG if the seed is manually passed
+        if seed is not None:
+            self._np_random, seed = seeding.np_random(seed)
+
         if self.random_start_pct > 0.00:
             size = len(self.observer.feed.process[-1].inputs[0].iterable)
             random_start = randint(0, int(size * self.random_start_pct))
@@ -187,18 +197,22 @@ class TradingEnv(gym.Env, TimeIndexed):
 
         obs = self.observer.observe(self)
         last_row = self.observer.history.rows [next(reversed(self.observer.history.rows))]
-        if self.config["multy_symbol_env"] == True:
+        if self.config.get('multy_symbol_env', False) == True:
             self.current_symbol_code = int(last_row["symbol_code"])
             self.end_of_episode = last_row["end_of_episode"]
             self.config["current_symbol_code"] = self.current_symbol_code
         self.clock.increment()
 
         # remove service cols from observation
-        if self.config["multy_symbol_env"] == True:
+        if self.config.get('multy_symbol_env', False) == True:
             obs = np.delete(obs, np.s_[-self.config.get('num_service_cols', 2):], axis=1)
 
         return obs
 
+    # old gymnasium api method
+    # we need it here for stable_baseline3 check_env testing
+    def seed(self, seed = None):
+        pass
 
     def render(self, **kwargs) -> None:
         """Renders the environment."""
@@ -213,7 +227,8 @@ class TradingEnv(gym.Env, TimeIndexed):
         self.renderer.close()
 
     def update_params(self):
-        last_row_0 = self.observer.history.rows[next(reversed(self.observer.history.rows))]
-        self.current_symbol_code = int(last_row_0["symbol_code"])
-        self.end_of_episode = last_row_0["end_of_episode"]
-        self.config["current_symbol_code"] = self.current_symbol_code
+        if self.config.get('multy_symbol_env', False) == True:
+            last_row_0 = self.observer.history.rows[next(reversed(self.observer.history.rows))]
+            self.current_symbol_code = int(last_row_0["symbol_code"])
+            self.end_of_episode = last_row_0["end_of_episode"]
+            self.config["current_symbol_code"] = self.current_symbol_code

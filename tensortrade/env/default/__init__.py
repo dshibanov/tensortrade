@@ -18,13 +18,24 @@ from tensortrade.feed.core import DataFeed, Stream
 from tensortrade.oms.services.execution.simulated import execute_order
 from tensortrade.oms.instruments import Instrument
 from tensortrade.oms.wallets import Wallet, Portfolio
-from gymnasium.wrappers import EnvCompatibility
+from gymnasium.wrappers import EnvCompatibility, FlattenObservation, StepAPICompatibility
 from pprint import pprint
 import random
 import math
+import warnings
+from icecream import ic
 
+import static_frame as sf
+# data = sf.Frame.from_csv(sf.WWW.from_file('https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data'), columns_depth=0)
 # turn off pandas SettingWithCopyWarning 
 pd.set_option('mode.chained_assignment', None)
+
+
+def get_info(env):
+        return env.env.env.env.informer.info(env.env.env.env)
+
+def get_action_scheme(env):
+    return env.env.env.env.action_scheme
 
 def create(portfolio: 'Portfolio',
            action_scheme: 'Union[actions.TensorTradeActionScheme, str]',
@@ -97,14 +108,8 @@ def create(portfolio: 'Portfolio',
             renderer = renderer_list
 
 
-    if kwargs["config"]["multy_symbol_env"] == True:
-        # environment = MultySymbolTradingEnv
-        environment = TradingEnv
-        print("multy_symbol_env == True, but use TradingEnv")
-    else:
-        environment = TradingEnv
 
-    env = environment(
+    env = TradingEnv(
         action_scheme=action_scheme,
         reward_scheme=reward_scheme,
         observer=observer,
@@ -113,24 +118,12 @@ def create(portfolio: 'Portfolio',
         renderer=renderer,
         min_periods=min_periods,
         random_start_pct=random_start_pct,
-        config=kwargs["config"]
+        config=kwargs.get('config', {})
     )
     return env
 
-def get_episode_lengths(num_rows, max_episode_length):
-    n = 1
-    while int(num_rows/n) > max_episode_length:
-        n+=1
 
-    rem = num_rows%n
-    ep_size = int(num_rows/n)
-    ep_lengths = np.empty(n, dtype = int)
-    ep_lengths.fill(ep_size)
-    while rem > 0:
-        ep_lengths[random.choice(np.where(ep_lengths == ep_size)[0])] += 1
-        rem -= 1
 
-    return ep_lengths
 
 def make_sin_feed(symbol_name='AssetX', symbol_code = 0, length=1000):
     x = np.arange(0, 2*np.pi, 2*np.pi / (length + 1))
@@ -181,7 +174,7 @@ def make_synthetic_symbol(config):
     elif config["process"] == 'flat':
         symbol["feed"] = make_flat_feed(symbol["name"], config["code"], config["length"], config["price_value"]).assign(end_of_episode=end_of_episode.values)
 
-    if config["shatter_on_episode_on_creation"] == True:
+    if config.get("shatter_on_episode_on_creation", False) == True:
         ep_lengths = get_episode_lengths(config["length"], config["max_episode_steps"])
         end_of_episode_index=0
         for i, l in enumerate(ep_lengths,0):
@@ -191,6 +184,7 @@ def make_synthetic_symbol(config):
             symbol["feed"]["end_of_episode"].iloc[end_of_episode_index] = True
 
     symbol["feed"]["end_of_episode"].iloc[-1] = True
+    # symbol["feed"] = sf.Frame.from_pandas(symbol['feed'])
     return symbol
 
 def get_episodes_lengths(feed):
@@ -203,33 +197,134 @@ def get_episodes_lengths(feed):
             steps_in_this_episode = 0
     return lens
 
+def split(N, num_parts):
+    a = np.arange(0, N, 1)
+    # print('a: ', a)
+    b = np.array_split(a, num_parts)
+
+    d = [len(c) for c in b]
+    random.shuffle(d)
+
+    result=[]
+    start = 0
+    for i,v in enumerate(d):
+        result.append([start, start+v])
+        start += v
+
+    return d, result
+
+def test_split():
+
+    a = np.arange(0, 95, 1)
+    r,t  = split(95,3)
+    print(r, t)
+    assert max(r) - min(r) <= 1
+    for j,v in enumerate(t,0):
+        # print(j,v)
+        chunk = a[v[0]:v[1]]
+        # print(len(chunk), chunk)
+        assert len(chunk) == r[j]
+
+
+    a = np.arange(0, 95, 1)
+    r,t = split(95,7)
+    print(r, t)
+    assert max(r) - min(r) <= 1
+    for j,v in enumerate(t,0):
+        # print(j,v)
+        chunk = a[v[0]:v[1]]
+        # print(len(chunk), chunk)
+        assert len(chunk) == r[j]
+
+    a = np.arange(0, 95, 1)
+    r,t = split(95,11)
+    print(r, t)
+    assert max(r) - min(r) <= 1
+    for j,v in enumerate(t,0):
+        # print(j,v)
+        chunk = a[v[0]:v[1]]
+        # print(len(chunk), chunk)
+        assert len(chunk) == r[j]
+
+    a = np.arange(0, 666, 1)
+    r,t = split(666,36)
+    print(r, t)
+    assert max(r) - min(r) <= 1
+    for j,v in enumerate(t,0):
+        # print(j,v)
+        chunk = a[v[0]:v[1]]
+        # print(len(chunk), chunk)
+        assert len(chunk) == r[j]
 
 def make_folds(config):
     # NFOLDCV_MODE_PROPORTIONAL
     for i, s in enumerate(config["symbols"], 0):
         feed_length = len(s["feed"])
         fold_length = int(feed_length / config["num_folds"])
-        raw_folds=[[i*fold_length,(i+1)*fold_length] for i in range(config["num_folds"])]
-        raw_folds[-1][1] = feed_length
-        start, end = raw_folds[-1]
+        _,raw_folds = split(feed_length, config["num_folds"])
+        ic(f'AFTER raw_folds {raw_folds}')
         all_episodes=[]
         folds=[]
+        last_episode_end_index=0
         for start, end in raw_folds:
-            if 1 == 1 or (end - start >= config["min_episode_length"] and end - start <= config["max_episode_length"]):
-                num_of_episodes = math.ceil((end - start) / config["max_episode_length"])
-                episodes=[[start +i*(config["max_episode_length"]), start + (i+1)*config["max_episode_length"]] for i in range(num_of_episodes)]
-                episodes[-1][1] = end
-                a = len(all_episodes)
-                b = a + len(episodes)
-                all_episodes = [*all_episodes, *episodes]
-                folds.append([a,b])
-            else:
-                raise ValueError('fold length is less then min_episode_length or bigger than max_episode_length. ¯\_(ツ)_/¯')
+            num_of_episodes = math.ceil((end - start) / config["max_episode_length"])
+            _,episodes = split(end - start, num_of_episodes)
+            ic(f'   {episodes=}')
+            episodes = [[t + last_episode_end_index for t in e] for e in episodes]
+            ic(f'   after {episodes=}')
+            last_episode_end_index = episodes[-1][-1] #- last_episode_end_index
+            a = len(all_episodes)
+            b = a + len(episodes)
+            all_episodes = [*all_episodes, *episodes]
+            folds.append([a,b])
+            for e in episodes:
+                if e[1] - e[0] < config["min_episode_length"]:
+                    ic('end - start ', end - start, ' max_episode_length ', config["max_episode_length"], ' min_episode_length ', config["min_episode_length"])
+                    warnings.warn("some episode length is less then min_episode_length  ¯\_(ツ)_/¯. Try to fix your config", Warning)
 
         s["folds"] = folds
         s["episodes"] = all_episodes
 
     return config
+
+def test_make_folds():
+    print('hey')
+
+    config = {
+              "max_episode_length": 15, # smaller is ok
+              "min_episode_length": 5, # bigger is ok, smaller is not
+              "make_folds":True,
+              "num_folds": 3,
+              # "symbols": make_symbols(5, 410),
+              "symbols": make_symbols(2, 160),
+              "cv_mode": 'proportional',
+              "test_fold_index": 3,
+              "reward_window_size": 1,
+              "window_size": 2,
+              "max_allowed_loss": 0.9,
+              "use_force_sell": True,
+              "multy_symbol_env": True,
+              "test": False
+             }
+
+
+    # dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
+
+    # env = create_multy_symbol_env(config)
+    action = 0 # 0 - buy asset, 1 - sell asset
+    config["nn_topology_a"] = 7
+    config["nn_topology_b_to_a_ratio"] = 0.3
+    config["nn_topology_c_to_b_ratio"] = 0.7
+    config["nn_topology_h_to_l_ratio"] = 2
+    config = make_folds(config)
+
+
+    for s in config["symbols"]:
+        assert len(s["folds"]) == config["num_folds"]
+        assert len(s["episodes"]) >= config["num_folds"]
+        assert s["episodes"][-1][-1] == len(s["feed"])
+        # print(s["folds"])
+        # print(s["episodes"])
 
 
 def make_symbols(num_symbols=5, length=666, shatter_on_episode_on_creation = False):
@@ -266,19 +361,29 @@ def get_wallets_volumes(wallets):
         volumes.append(float(balance.size))
     return volumes
 
-def is_end_of_episode(obs):
-    return obs[-1][-1]
+def get_observer(env):
+    return env.env.env.env.observer
 
+def is_end_of_episode(env):
+    return env.env.env.env.end_of_episode
 
 def get_train_test_feed(config, train_only=False, test_only=False):
     if train_only == True and test_only == True:
             raise ValueError('Wrong settings, no folds will be retuned    ¯\_(ツ)_/¯')
+
+    for s in config["symbols"]:
+        # print(s["feed"].to_markdown())
+        lengths = get_episodes_lengths(s["feed"])
+        # print(f'before make_folds {lengths=}')
+        assert min(lengths) > 3
+
 
     test_fold_index = config["test_fold_index"]
     symbols = config["symbols"]
     train_feed = pd.DataFrame()
     test_feed = pd.DataFrame()
     for s in symbols:
+        # print('s_feed ', s["feed"].to_markdown())
         train_episodes=[]
         test_episodes=[]
         for fold_num in range(config["num_folds"]):
@@ -293,40 +398,64 @@ def get_train_test_feed(config, train_only=False, test_only=False):
                 train_feed.iloc[-1, train_feed.columns.get_loc('end_of_episode')] = True
 
         if not train_only:
+            print(f'  {test_episodes=}')
             for e in test_episodes:
+                # print(f'     test_feed {e[0]} {e[1]}')
+                ic(f'     test_feed {e[0]} {e[1]}')
+                # print(f'>>>> s_feed {s["feed"].iloc[e[0]: e[1]]}')
                 test_feed = pd.concat([test_feed, s["feed"].iloc[e[0]: e[1]]])
+                # print(test_feed.head(20))
+                ic(test_feed.head(20))
                 test_feed.iloc[-1, test_feed.columns.get_loc('end_of_episode')] = True
+                # print(test_feed.head(20))
 
     return train_feed, test_feed
 
 
 def get_dataset(config):
     if config["make_folds"] == True:
-        print('should make folds')
+        # print('should make folds')
         if config["test"] == True:
-            return(get_train_test_feed(config, test_only=True))
+            return (get_train_test_feed(config, test_only=True)[1])
         else:
-            return(get_train_test_feed(config, train_only=True))
+            return (get_train_test_feed(config, train_only=True)[0])
     else:
-        return (pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))]), )
+        return (pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))]))
 
 
 def create_multy_symbol_env(config):
-    dataset = get_dataset(config)[0 if config["test"] == False else 1]
+
+    ic.disable()
+    # do some parameters check here
+    if config["make_folds"] == True and config["test_fold_index"] >= config["num_folds"]:
+        raise ValueError(' test_fold_index is bigger then num_folds ¯\_(ツ)_/¯')
+
+    # i = [0 if config["test"] == False else 1]
+    # print('i ', i)
+    dataset = get_dataset(config) # [ 0 if config["test"] == False else 1]
+    # print('dataset is ready')
+    # print(type(dataset), dataset)
+    # ic(dataset.to_markdown())
+    # return
     exchanges=[]
     wallets=[]
     # exchange_options = ExchangeOptions(commission=config["symbols"][-1]["commission"], spread=config["symbols"][-1]["spread"])
     exchange_options = ExchangeOptions(commission=config["symbols"][-1]["commission"], config=config)
 
-    price = Stream.source(list(dataset["close"]), dtype="float").rename("USDT-ASSET")
+    # price = Stream.source(list(dataset["close"]), dtype="float").rename("USDT-ASSET")
     prices=[]
     for i,s in enumerate(config["symbols"],0):
         price=[]
         for j in range(len(config["symbols"])):
+            d = dataset.loc[dataset["symbol_code"]==j]
             if j == i:
-                price.extend(config["symbols"][i]["feed"]["close"].values)
+                # price.extend(config["symbols"][i]["feed"]["close"].values)
+                price.extend(d["close"].values)
             else:
-                price.extend(np.ones(len(config["symbols"][j]["feed"]["close"])))
+                # d = dataset.loc[dataset["symbol_code"]==i]
+                # price.extend(np.ones(len(config["symbols"][j]["feed"]["close"])))
+                # вот тут единичками нужно записать оставшееся пространство 
+                price.extend(np.ones(len(d["close"])))
 
         prices.append(Stream.source(price, dtype="float").rename(f"USDT-AST{i}"))
 
@@ -370,5 +499,5 @@ def create_multy_symbol_env(config):
     )
 
 
-    env = EnvCompatibility(env)
+    env = StepAPICompatibility(FlattenObservation(EnvCompatibility(env)))
     return env

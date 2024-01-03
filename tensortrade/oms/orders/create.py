@@ -276,6 +276,7 @@ def proportion_order(portfolio: 'Portfolio',
         quantity = (size * source.instrument).quantize()
 
         side = TradeSide.BUY if is_source_base else TradeSide.SELL
+        #price = exchange_pair.price(side)
         params = {
             **base_params,
             'side': side,
