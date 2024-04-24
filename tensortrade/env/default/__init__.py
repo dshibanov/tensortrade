@@ -175,7 +175,8 @@ def make_synthetic_symbol(config):
         symbol["feed"] = make_flat_feed(symbol["name"], config["code"], config["length"], config["price_value"]).assign(end_of_episode=end_of_episode.values)
 
     if config.get("shatter_on_episode_on_creation", False) == True:
-        ep_lengths = get_episode_lengths(config["length"], config["max_episode_steps"])
+        # ep_lengths = get_episode_lengths(config["length"], config["max_episode_steps"])
+        ep_lengths = get_episodes_lengths(config["length"], config["max_episode_steps"])
         end_of_episode_index=0
         for i, l in enumerate(ep_lengths,0):
             end_of_episode_index += l
@@ -328,6 +329,8 @@ def test_make_folds():
 
 
 def make_symbols(num_symbols=5, length=666, shatter_on_episode_on_creation = False):
+    # TODO: rename --> make_synthetic_symbols
+
     symbols=[]
     for i in range(num_symbols):
         spread = 0.01
