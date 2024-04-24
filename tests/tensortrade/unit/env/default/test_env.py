@@ -627,7 +627,7 @@ def test_multy_symbol_simple_use_force_sell():
 
     num_symbols=5
     config = {
-              "symbols": make_symbols(num_symbols, 666, True),
+              "symbols": make_symbols(num_symbols, 15, True),
               "reward_window_size": 7,
               "window_size": 1,
               "max_allowed_loss":100,
@@ -1939,7 +1939,6 @@ if __name__ == "__main__":
     # ic.disable()
     ic.enable()
     ic.configureOutput(includeContext=True)
-
     # test_ray_example()
     # test_idle_embedded_tuners_hpo()
 
@@ -1950,7 +1949,7 @@ if __name__ == "__main__":
     # test_make_folds()
     # test_shape_to_topology()
     # test_eval_fold()
-    test_get_cv_score()
+    # test_get_cv_score()
     # test_hpo()
     # test_mlflow()
     # test_simulate()
@@ -1961,7 +1960,7 @@ if __name__ == "__main__":
     # test_obs_space_of()
     # test_multy_symbols()
     # test_multy_symbol_simple_trade_close_manually()
-    # test_multy_symbol_simple_use_force_sell()
+    test_multy_symbol_simple_use_force_sell()
     # test_end_episodes()
     # test_comission()
     # test_spread()

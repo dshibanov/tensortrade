@@ -176,7 +176,8 @@ def make_synthetic_symbol(config):
 
     if config.get("shatter_on_episode_on_creation", False) == True:
         # ep_lengths = get_episode_lengths(config["length"], config["max_episode_steps"])
-        ep_lengths = get_episodes_lengths(config["length"], config["max_episode_steps"])
+        # ep_lengths = get_episodes_lengths(config["length"], config["max_episode_steps"])
+        ep_lengths = get_episodes_lengths(symbol["feed"])
         end_of_episode_index=0
         for i, l in enumerate(ep_lengths,0):
             end_of_episode_index += l
