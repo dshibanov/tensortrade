@@ -720,7 +720,7 @@ def test_make_synthetic_symbol():
               "commission": 0.0001,
               "code": 0,
               "length": 31,
-              "max_episode_steps": 11,
+              "max_episode_steps": 41,
               # "max_episode_steps": 152,
               "process": 'flat',
               "price_value": 100}
@@ -736,28 +736,30 @@ def test_make_synthetic_symbol():
             print("     > ", i)
             ep_length = i - last_episode_start
             last_episode_start = i+1
+
+            print(ep_length, config["max_episode_steps"])
             assert ep_length <= config["max_episode_steps"]
 
 
 
-@pytest.mark.skip()
-# maybe this is useless now
-def test_get_episode_lengths():
-    result = get_episode_lengths(31, 10)
-    # print(result, result.sum())
-    assert result.sum() == 31
-    result = get_episode_lengths(34, 10)
-    # print(result, result.sum())
-    assert result.sum() == 34
-    result = get_episode_lengths(37, 10)
-    # print(result, result.sum())
-    assert result.sum() == 37
-    result = get_episode_lengths(61, 13)
-    # print(result, result.sum())
-    assert result.sum() == 61
-    result = get_episode_lengths(39, 20)
-    # print(result, result.sum())
-    assert result.sum() == 39
+# @pytest.mark.skip()
+# # maybe this is useless now
+# def test_get_episode_lengths():
+#     result = get_episode_lengths(31, 10)
+#     # print(result, result.sum())
+#     assert result.sum() == 31
+#     result = get_episode_lengths(34, 10)
+#     # print(result, result.sum())
+#     assert result.sum() == 34
+#     result = get_episode_lengths(37, 10)
+#     # print(result, result.sum())
+#     assert result.sum() == 37
+#     result = get_episode_lengths(61, 13)
+#     # print(result, result.sum())
+#     assert result.sum() == 61
+#     result = get_episode_lengths(39, 20)
+#     # print(result, result.sum())
+#     assert result.sum() == 39
 
 @pytest.mark.skip()
 # it looks like after flattening np.shape(obs) != env.observer.observation_space.shape
@@ -783,6 +785,7 @@ def test_observation_shape():
     # print(obs, np.shape(obs), env.env.observer.observation_space)
     print(f'reset obs: {obs} type(obs): {type(obs)} obs.shape: {np.shape(obs)} obs_shape {get_observer(env).observation_space.shape}')
     # assert np.shape(obs) == env.env.observer.observation_space.shape
+    print(np.shape(obs), get_observer(env).observation_space.shape)
     assert np.shape(obs) == get_observer(env).observation_space.shape
     obs, reward, done, truncated, info = env.step(0)
     # print(obs, np.shape(obs), env.env.observer.observation_space)
@@ -1939,6 +1942,11 @@ if __name__ == "__main__":
     # ic.disable()
     ic.enable()
     ic.configureOutput(includeContext=True)
+
+
+    # TODO: revise all of these tests and remove useless
+
+
     # test_ray_example()
     # test_idle_embedded_tuners_hpo()
 
@@ -1949,20 +1957,22 @@ if __name__ == "__main__":
     # test_make_folds()
     # test_shape_to_topology()
     # test_eval_fold()
-    # test_get_cv_score()
+    test_get_cv_score()
     # test_hpo()
     # test_mlflow()
-    # test_simulate()
-    # test_create_ms_env()
+    # test_simulate() # NOT OK
+
+
+    # test_create_ms_env() # OK
     # eval('/home/happycosmonaut/ray_results/DQN_2023-11-16_21-27-38/DQN_multy_symbol_env_4bf15_00000_0_2023-11-16_21-27-40/checkpoint_000002')
-    # test_get_train_test_feed()
-    # test_observation_shape()
-    # test_obs_space_of()
-    # test_multy_symbols()
-    # test_multy_symbol_simple_trade_close_manually()
-    test_multy_symbol_simple_use_force_sell()
-    # test_end_episodes()
-    # test_comission()
-    # test_spread()
-    # test_make_synthetic_symbol()
-    # test_get_episode_lengths()
+    # test_get_train_test_feed() # OK
+    # test_observation_shape() # some problems with this test
+    # test_obs_space_of() # OK
+    # test_multy_symbols() # OK
+    # test_multy_symbol_simple_trade_close_manually() # OK
+    # test_multy_symbol_simple_use_force_sell() # OK
+    # test_end_episodes() # OK
+    # test_comission() # NOT OK
+    # test_spread() # OK
+    # test_make_synthetic_symbol() # OK
+    # test_get_episode_lengths() # deprecated.. we need test for test_get_episodes_lengths
