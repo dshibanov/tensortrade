@@ -26,6 +26,12 @@ import warnings
 from icecream import ic
 
 import static_frame as sf
+
+
+# SYNTHETIC PROCESSES
+SIN = 'SIN'
+FLAT = 'FLAT'
+
 # data = sf.Frame.from_csv(sf.WWW.from_file('https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data'), columns_depth=0)
 # turn off pandas SettingWithCopyWarning 
 pd.set_option('mode.chained_assignment', None)
@@ -165,28 +171,48 @@ def make_flat_symbol(name, symbol_code=0, spread=0.01, commission=0.005, length=
     symbol["feed"]["end_of_episode"].iloc[-1] = True
     return symbol
 
+# def make_synthetic_symbol(config):
+#     symbol = config
+#     end_of_episode = pd.Series(np.full(config["length"]+1, False))
+
+#     if config["process"] == 'sin':
+#         symbol["feed"] = make_sin_feed(symbol["name"], config["code"], config["length"]).assign(end_of_episode=end_of_episode.values)
+#     elif config["process"] == 'flat':
+#         symbol["feed"] = make_flat_feed(symbol["name"], config["code"], config["length"], config["price_value"]).assign(end_of_episode=end_of_episode.values)
+
+#     if config.get("shatter_on_episode_on_creation", False) == True:
+#         # ep_lengths = get_episode_lengths(config["length"], config["max_episode_steps"])
+#         # ep_lengths = get_episodes_lengths(config["length"], config["max_episode_steps"])
+#         ep_lengths = get_episodes_lengths(symbol["feed"])
+#         end_of_episode_index=0
+#         for i, l in enumerate(ep_lengths,0):
+#             end_of_episode_index += l
+#             # FIXME: next line produces SettingWithCopyWarning, maybe somebody will
+#             # be so nice to fix it
+#             symbol["feed"]["end_of_episode"].iloc[end_of_episode_index] = True
+
+#     symbol["feed"]["end_of_episode"].iloc[-1] = True
+#     # symbol["feed"] = sf.Frame.from_pandas(symbol['feed'])
+#     return symbol
+
+
 def make_synthetic_symbol(config):
     symbol = config
-    end_of_episode = pd.Series(np.full(config["length"]+1, False))
+    end_of_episode = pd.Series(np.full(config["num_of_samples"]+1, False))
 
-    if config["process"] == 'sin':
-        symbol["feed"] = make_sin_feed(symbol["name"], config["code"], config["length"]).assign(end_of_episode=end_of_episode.values)
-    elif config["process"] == 'flat':
-        symbol["feed"] = make_flat_feed(symbol["name"], config["code"], config["length"], config["price_value"]).assign(end_of_episode=end_of_episode.values)
+    if config["process"] == SIN:
+        symbol["feed"] = make_sin_feed(symbol["name"], symbol.get('code',0), symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
+    elif config["process"] == FLAT:
+        symbol["feed"] = make_flat_feed(symbol["name"], symbol.get('code',0), symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
 
     if config.get("shatter_on_episode_on_creation", False) == True:
-        # ep_lengths = get_episode_lengths(config["length"], config["max_episode_steps"])
-        # ep_lengths = get_episodes_lengths(config["length"], config["max_episode_steps"])
         ep_lengths = get_episodes_lengths(symbol["feed"])
         end_of_episode_index=0
         for i, l in enumerate(ep_lengths,0):
             end_of_episode_index += l
-            # FIXME: next line produces SettingWithCopyWarning, maybe somebody will
-            # be so nice to fix it
-            symbol["feed"]["end_of_episode"].iloc[end_of_episode_index] = True
+            symbol["feed"].iloc[end_of_episode_index,symbol["feed"].columns.get_loc('end_of_episode')] = True
 
-    symbol["feed"]["end_of_episode"].iloc[-1] = True
-    # symbol["feed"] = sf.Frame.from_pandas(symbol['feed'])
+    symbol["feed"].iloc[-1,symbol["feed"].columns.get_loc('end_of_episode')] = True
     return symbol
 
 def get_episodes_lengths(feed):
@@ -329,7 +355,7 @@ def test_make_folds():
         # print(s["episodes"])
 
 
-def make_symbols(num_symbols=5, length=666, shatter_on_episode_on_creation = False):
+def make_symbols(num_symbols=5, num_of_samples=666, shatter_on_episode_on_creation = False):
     # TODO: rename --> make_synthetic_symbols
 
     symbols=[]
@@ -347,11 +373,11 @@ def make_symbols(num_symbols=5, length=666, shatter_on_episode_on_creation = Fal
               "spread": spread,
               "commission": commission,
               "code": i,
-              "length": length,
+              "num_of_samples": num_of_samples,
               "max_episode_steps": 11,
               # "max_episode_steps": 152,
               # "process": 'flat',
-              "process": 'sin',
+              "process": SIN,
               "price_value": 100,
               "shatter_on_episode_on_creation": shatter_on_episode_on_creation}
 

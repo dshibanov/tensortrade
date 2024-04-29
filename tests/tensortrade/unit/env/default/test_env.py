@@ -719,10 +719,10 @@ def test_make_synthetic_symbol():
               "spread": 0.001,
               "commission": 0.0001,
               "code": 0,
-              "length": 31,
+              "num_of_samples": 31,
               "max_episode_steps": 41,
               # "max_episode_steps": 152,
-              "process": 'flat',
+              "process": FLAT,
               "price_value": 100}
 
     config["shatter_on_episode_on_creation"] = True
@@ -1957,7 +1957,7 @@ if __name__ == "__main__":
     # test_make_folds()
     # test_shape_to_topology()
     # test_eval_fold()
-    test_get_cv_score()
+    # test_get_cv_score()
     # test_hpo()
     # test_mlflow()
     # test_simulate() # NOT OK
@@ -1974,5 +1974,5 @@ if __name__ == "__main__":
     # test_end_episodes() # OK
     # test_comission() # NOT OK
     # test_spread() # OK
-    # test_make_synthetic_symbol() # OK
+    test_make_synthetic_symbol() # OK
     # test_get_episode_lengths() # deprecated.. we need test for test_get_episodes_lengths
