@@ -82,7 +82,6 @@ def create(portfolio: 'Portfolio',
     """
 
     action_scheme = actions.get(action_scheme) if isinstance(action_scheme, str) else action_scheme
-    reward_scheme = rewards.get(reward_scheme) if isinstance(reward_scheme, str) else reward_scheme
 
     action_scheme.portfolio = portfolio
 
@@ -462,7 +461,7 @@ def create_multy_symbol_env(config):
 
     # i = [0 if config["test"] == False else 1]
     # print('i ', i)
-    dataset = get_dataset(config) # [ 0 if config["test"] == False else 1]
+    dataset = get_dataset(config).drop('symbol', axis=1) # [ 0 if config["test"] == False else 1]
     # print('dataset is ready')
     # print(type(dataset), dataset)
     # ic(dataset.to_markdown())
@@ -502,6 +501,7 @@ def create_multy_symbol_env(config):
 
     portfolio = Portfolio(USDT, wallets)
     features = []
+
     for c in dataset.columns[0:]:
         if c != 'symbol' and c != 'end_of_episode':
             s = Stream.source(list(dataset[c]), dtype="float").rename(dataset[c].name)
