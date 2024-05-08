@@ -26,7 +26,8 @@ from ray.air.config import RunConfig, ScalingConfig, CheckpointConfig
 from ray.rllib.utils import check_env
 from ray.rllib.algorithms.algorithm import Algorithm
 from icecream import ic
-from plot import plot_history, set_gruvbox
+# from plot import plot_history, set_gruvbox
+from tensortrade.utils.plot import plot_history, set_gruvbox
 
 from ray.tune.schedulers import PopulationBasedTraining
 
@@ -237,6 +238,7 @@ def test_end_episodes():
               "multy_symbol_env": True,
               "use_force_sell": True,
               "make_folds": False,
+              "num_service_cols" : 1,
               "test": False
              }
 
@@ -318,6 +320,7 @@ def test_spread():
               "max_allowed_loss":100,
               "multy_symbol_env": True,
               "use_force_sell": True,
+              "num_service_cols" : 1,
               "make_folds": False,
               "test": False
              }
@@ -454,17 +457,16 @@ def test_comission():
 
 def test_multy_symbols():
     num_symbols=5
-    symbols=[]
-    for i in range(num_symbols):
-        symbols.append(make_sin_symbol("Asset"+str(i), i))
+
     config = {
-              "symbols": make_symbols(num_symbols, 666, True),
+              # "symbols": make_symbols(num_symbols, 666, True),
+              "symbols": make_symbols(num_symbols, 12, True),
               "reward_window_size": 7,
               "window_size": 3,
               "max_allowed_loss":100,
               "multy_symbol_env": True,
               "use_force_sell": True,
-              "num_service_cols" : 2,
+              "num_service_cols" : 1,
               "make_folds": False,
               "test": False
              }
@@ -549,7 +551,7 @@ def test_multy_symbol_simple_trade_close_manually():
               "max_allowed_loss":100,
               "multy_symbol_env": True,
               "use_force_sell": False,
-              "num_service_cols" : 2,
+              "num_service_cols" : 1,
               "make_folds": False,
               "test": False
              }
@@ -633,7 +635,7 @@ def test_multy_symbol_simple_use_force_sell():
               "max_allowed_loss":100,
               "multy_symbol_env": True,
               "use_force_sell": True,
-              "num_service_cols" : 2,
+              "num_service_cols" : 1,
               "make_folds": False,
               "test": False
              }
@@ -712,7 +714,8 @@ def test_make_synthetic_symbol():
               "max_episode_steps": 41,
               # "max_episode_steps": 152,
               "process": FLAT,
-              "price_value": 100}
+              "price_value": 100,
+              "start_date": '1/1/2011'}
 
     config["shatter_on_episode_on_creation"] = True
     s = make_synthetic_symbol(config)
@@ -1952,16 +1955,16 @@ if __name__ == "__main__":
     # test_simulate() # NOT OK
 
 
-    test_create_ms_env() # OK
+    # test_create_ms_env() # OK
     # eval('/home/happycosmonaut/ray_results/DQN_2023-11-16_21-27-38/DQN_multy_symbol_env_4bf15_00000_0_2023-11-16_21-27-40/checkpoint_000002')
-    test_get_train_test_feed() # OK
+    # test_get_train_test_feed() # OK
     # test_observation_shape() # some problems with this test
-    test_obs_space_of() # OK
+    # test_obs_space_of() # OK
     test_multy_symbols() # OK
-    test_multy_symbol_simple_trade_close_manually() # OK
-    test_multy_symbol_simple_use_force_sell() # OK
-    test_end_episodes() # OK
+    # test_multy_symbol_simple_trade_close_manually() # OK
+    # test_multy_symbol_simple_use_force_sell() # OK
+    # test_end_episodes() # OK
     # test_comission() # NOT OK
-    test_spread() # OK
-    test_make_synthetic_symbol() # OK
+    # test_spread() # OK
+    # test_make_synthetic_symbol() # OK
     # test_get_episode_lengths() # deprecated.. we need test for test_get_episodes_lengths

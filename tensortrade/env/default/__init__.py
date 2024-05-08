@@ -130,69 +130,22 @@ def create(portfolio: 'Portfolio',
 
 
 
-def make_sin_feed(symbol_name='AssetX', symbol_code = 0, length=1000):
+def make_sin_feed(length=1000):
     x = np.arange(0, 2*np.pi, 2*np.pi / (length + 1))
     y = 50*np.sin(3*x) + 100
-    xy = pd.DataFrame(data=np.transpose([y]), index=x).assign(symbol=pd.Series(np.full(len(x), symbol_name)).values).assign(symbol_code=pd.Series(np.full(len(x), symbol_code)).values)
-    xy.columns=['close', 'symbol', 'symbol_code']
+    xy = pd.DataFrame(data=np.transpose([y]), index=x)#.assign(symbol=pd.Series(np.full(len(x), symbol_name)).values).assign(symbol_code=pd.Series(np.full(len(x), symbol_code)).values)
+    xy.columns=['close'] #, 'symbol', 'symbol_code']
     xy.index.name = "datetime"
     return xy
 
-def make_flat_feed(symbol_name='AssetX', symbol_code = 0, length=1000, price_value=100):
+def make_flat_feed(length=1000, price_value=100):
     x = np.arange(0, 2*np.pi, 2*np.pi / (length + 1))
     y = np.full(np.shape(x), float(price_value))
-    xy = pd.DataFrame(data=np.transpose([y]), index=x).assign(symbol=pd.Series(np.full(len(x), symbol_name)).values).assign(symbol_code=pd.Series(np.full(len(x), symbol_code)).values)
-    xy.columns=['close', 'symbol', 'symbol_code']
+    xy = pd.DataFrame(data=np.transpose([y]), index=x)#.assign(symbol=pd.Series(np.full(len(x), symbol_name)).values)#.assign(symbol_code=pd.Series(np.full(len(x), symbol_code)).values)
+    xy.columns=['close'] #, 'symbol', 'symbol_code']
     xy.index.name = "datetime"
     return xy
 
-def make_sin_symbol(name, symbol_code=0, spread=0.01, commission=0.005, length=40):
-    symbol = {'name': name,
-               'spread': spread,
-               'commission': commission
-              }
-
-    end_of_episode = pd.Series(np.full(length+1, False))
-    symbol["feed"] = make_sin_feed(symbol["name"], symbol_code, length).assign(end_of_episode=end_of_episode.values)
-    symbol["feed"]["end_of_episode"].iloc[-1] = True
-
-    return symbol
-
-
-def make_flat_symbol(name, symbol_code=0, spread=0.01, commission=0.005, length=40, price=100):
-    symbol = {'name': name,
-               'spread': spread,
-               'commission': commission
-              }
-
-    end_of_episode = pd.Series(np.full(length+1, False))
-    symbol["feed"] = make_flat_feed(symbol["name"], symbol_code, length, price).assign(end_of_episode=end_of_episode.values)
-    symbol["feed"]["end_of_episode"].iloc[-1] = True
-    return symbol
-
-# def make_synthetic_symbol(config):
-#     symbol = config
-#     end_of_episode = pd.Series(np.full(config["length"]+1, False))
-
-#     if config["process"] == 'sin':
-#         symbol["feed"] = make_sin_feed(symbol["name"], config["code"], config["length"]).assign(end_of_episode=end_of_episode.values)
-#     elif config["process"] == 'flat':
-#         symbol["feed"] = make_flat_feed(symbol["name"], config["code"], config["length"], config["price_value"]).assign(end_of_episode=end_of_episode.values)
-
-#     if config.get("shatter_on_episode_on_creation", False) == True:
-#         # ep_lengths = get_episode_lengths(config["length"], config["max_episode_steps"])
-#         # ep_lengths = get_episodes_lengths(config["length"], config["max_episode_steps"])
-#         ep_lengths = get_episodes_lengths(symbol["feed"])
-#         end_of_episode_index=0
-#         for i, l in enumerate(ep_lengths,0):
-#             end_of_episode_index += l
-#             # FIXME: next line produces SettingWithCopyWarning, maybe somebody will
-#             # be so nice to fix it
-#             symbol["feed"]["end_of_episode"].iloc[end_of_episode_index] = True
-
-#     symbol["feed"]["end_of_episode"].iloc[-1] = True
-#     # symbol["feed"] = sf.Frame.from_pandas(symbol['feed'])
-#     return symbol
 
 
 def make_synthetic_symbol(config):
@@ -200,9 +153,9 @@ def make_synthetic_symbol(config):
     end_of_episode = pd.Series(np.full(config["num_of_samples"]+1, False))
 
     if config["process"] == SIN:
-        symbol["feed"] = make_sin_feed(symbol["name"], symbol.get('code',0), symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
-    elif config["process"] == FLAT:
-        symbol["feed"] = make_flat_feed(symbol["name"], symbol.get('code',0), symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
+        symbol["feed"] = make_sin_feed(symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
+    elif config["process"] == FLAT:      
+        symbol["feed"] = make_flat_feed(symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
 
     if config.get("shatter_on_episode_on_creation", False) == True:
         ep_lengths = get_episodes_lengths(symbol["feed"])
@@ -211,7 +164,9 @@ def make_synthetic_symbol(config):
             end_of_episode_index += l
             symbol["feed"].iloc[end_of_episode_index,symbol["feed"].columns.get_loc('end_of_episode')] = True
 
+    # here was SettingWithCopyWarning.. 
     symbol["feed"].iloc[-1,symbol["feed"].columns.get_loc('end_of_episode')] = True
+    symbol["feed"].index = pd.date_range(start=config.get('start_date', '1/1/2018'), freq=config.get('period','1d'), periods=len(symbol['feed'].index))
     return symbol
 
 def get_episodes_lengths(feed):
@@ -401,7 +356,8 @@ def get_train_test_feed(config, train_only=False, test_only=False):
             raise ValueError('Wrong settings, no folds will be retuned    ¯\_(ツ)_/¯')
 
     for s in config["symbols"]:
-        # print(s["feed"].to_markdown())
+        print(s["feed"].to_markdown())
+        return
         lengths = get_episodes_lengths(s["feed"])
         # print(f'before make_folds {lengths=}')
         assert min(lengths) > 3
@@ -461,7 +417,7 @@ def create_multy_symbol_env(config):
 
     # i = [0 if config["test"] == False else 1]
     # print('i ', i)
-    dataset = get_dataset(config).drop('symbol', axis=1) # [ 0 if config["test"] == False else 1]
+    dataset = get_dataset(config)#.drop('symbol', axis=1) # [ 0 if config["test"] == False else 1]
     # print('dataset is ready')
     # print(type(dataset), dataset)
     # ic(dataset.to_markdown())
@@ -486,6 +442,8 @@ def create_multy_symbol_env(config):
                 # вот тут единичками нужно записать оставшееся пространство 
                 price.extend(np.ones(len(d["close"])))
 
+        # REFACTOR here
+        # "{config['base_symbol']}-{s['name']}"
         prices.append(Stream.source(price, dtype="float").rename(f"USDT-AST{i}"))
 
     exchange = Exchange('binance', service=execute_order, options=exchange_options)(*prices)
