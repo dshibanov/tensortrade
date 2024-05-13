@@ -142,7 +142,7 @@ class TradingEnv(gym.Env, TimeIndexed):
         last_row_0 = self.observer.history.rows[next(reversed(self.observer.history.rows))]
         if self.config.get('multy_symbol_env', False) == True:
             self.update_params()
-            if "use_force_sell" in self.config and self.config["use_force_sell"] == True and self.end_of_episode == True:
+            if "use_force_sell" in self.config and self.config["use_force_sell"] == True and self.observer.end_of_episode == True:
                 self.action_scheme.force_sell()
             else:
                 self.action_scheme.perform(self, action)
@@ -150,12 +150,6 @@ class TradingEnv(gym.Env, TimeIndexed):
         obs = self.observer.observe(self)
         self.update_params()
 
-        # remove service cols from observation
-        if self.config.get('multy_symbol_env', False) == True:
-            # obs = np.delete(obs, np.s_[-self.config.get('num_service_cols', 2):], axis=1)
-            # -self.config.get('num_service_cols', 2)-1, -1 because we dropped
-            # 'symbol' column 
-            obs = np.delete(obs, np.s_[-self.config.get('num_service_cols', 2)-1:], axis=1)
 
         reward = self.reward_scheme.reward(self)
         done = self.stopper.stop(self)
@@ -201,16 +195,9 @@ class TradingEnv(gym.Env, TimeIndexed):
         obs = self.observer.observe(self)
         last_row = self.observer.history.rows [next(reversed(self.observer.history.rows))]
         if self.config.get('multy_symbol_env', False) == True:
-            self.current_symbol_code = int(last_row["symbol_code"])
-            self.end_of_episode = last_row["end_of_episode"]
-            self.config["current_symbol_code"] = self.current_symbol_code
-        self.clock.increment()
+            self.end_of_episode = self.observer.end_of_episode
 
-        # remove service cols from observation
-        if self.config.get('multy_symbol_env', False) == True:
-            # -self.config.get('num_service_cols', 2)-1, -1 because we dropped
-            # 'symbol' column 
-            obs = np.delete(obs, np.s_[-self.config.get('num_service_cols', 2)-1:], axis=1)
+        self.clock.increment()
 
         return obs
 
@@ -234,6 +221,6 @@ class TradingEnv(gym.Env, TimeIndexed):
     def update_params(self):
         if self.config.get('multy_symbol_env', False) == True:
             last_row_0 = self.observer.history.rows[next(reversed(self.observer.history.rows))]
-            self.current_symbol_code = int(last_row_0["symbol_code"])
-            self.end_of_episode = last_row_0["end_of_episode"]
-            self.config["current_symbol_code"] = self.current_symbol_code
+            self.end_of_episode = self.observer.end_of_episode #last_row_0["end_of_episode"]
+            # FIXME: get current_symbol_code somewhere??
+            self.config["current_symbol_code"] = self.observer.symbol_code

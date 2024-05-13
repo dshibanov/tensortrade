@@ -16,6 +16,8 @@ from tensortrade.oms.wallets import Wallet
 from tensortrade.env.generic import Observer
 from collections import OrderedDict
 
+SYMBOL_CODE = 'symbol_code'
+END_OF_EPISODE = 'end_of_episode'
 
 def _create_wallet_source(wallet: 'Wallet', include_worth: bool = True) -> 'List[Stream[float]]':
     """Creates a list of streams to describe a `Wallet`.
@@ -52,7 +54,8 @@ def _create_wallet_source(wallet: 'Wallet', include_worth: bool = True) -> 'List
     return streams
 
 
-def _create_internal_streams(portfolio: 'Portfolio') -> 'List[Stream[float]]':
+# def _create_internal_streams(portfolio: 'Portfolio') -> 'List[Stream[float]]':
+def _create_internal_streams(portfolio: 'Portfolio', service_cols=pd.DataFrame()) -> 'List[Stream[float]]':
     """Creates a list of streams to describe a `Portfolio`.
 
     Parameters
@@ -190,8 +193,19 @@ class TensorTradeObserver(Observer):
                  window_size: int = 1,
                  min_periods: int = None,
                  **kwargs) -> None:
-        internal_group = Stream.group(_create_internal_streams(portfolio)).rename("internal")
-        external_group = Stream.group(feed.inputs).rename("external")
+
+        # get service cols
+        internal_inputs = _create_internal_streams(portfolio)
+        external_inputs = []
+
+        for i in feed.inputs:
+            if i.name == SYMBOL_CODE or i.name == END_OF_EPISODE:
+                internal_inputs += [i]
+            else:
+                external_inputs += [i]
+
+        internal_group = Stream.group(internal_inputs).rename("internal")
+        external_group = Stream.group(external_inputs).rename("external")
 
         if renderer_feed:
             renderer_group = Stream.group(renderer_feed.inputs).rename("renderer")
@@ -218,7 +232,9 @@ class TensorTradeObserver(Observer):
 
         initial_obs = self.feed.next()["external"]
         n_features = len(initial_obs.keys())
-        norm_n_features = n_features - kwargs.get('num_service_cols', 0) - 1
+        # FIXME:
+        # control 'norm_n_features' here can be errors here from not correct num_service_cols
+        norm_n_features = n_features# - kwargs.get('num_service_cols', 0) - 1
 
         self._observation_space = Box(
             low=self._observation_lows,
@@ -269,9 +285,17 @@ class TensorTradeObserver(Observer):
         obs_row = data["external"]
         self.history.push(obs_row)
 
+        obs_internal = data["internal"]
+        self.end_of_episode = obs_internal.get("end_of_episode", False)
+        self.symbol_code = obs_internal.get("symbol_code", 0)
+
         obs = self.history.observe()
         obs = obs.astype(self._observation_dtype)
         return obs
+
+    def is_end_of_episode(self):
+        obs_row = data["internal"]
+        return obs_row
 
     def has_next(self) -> bool:
         """Checks if there is another observation to be generated.

@@ -23,6 +23,8 @@ class MultySymbolEnvInformer(Informer):
         return {
             'step': self.clock.step,
             'net_worth': env.action_scheme.portfolio.net_worth,
-            'symbol_code': env.current_symbol_code,
+            # FIXME:
+            # we can find out & return current_symbol_code somehow
+            # 'symbol_code': env.current_symbol_code,
             'end_of_episode': env.end_of_episode
         }

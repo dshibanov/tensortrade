@@ -154,7 +154,7 @@ def make_synthetic_symbol(config):
 
     if config["process"] == SIN:
         symbol["feed"] = make_sin_feed(symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
-    elif config["process"] == FLAT:      
+    elif config["process"] == FLAT:
         symbol["feed"] = make_flat_feed(symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
 
     if config.get("shatter_on_episode_on_creation", False) == True:
@@ -167,6 +167,7 @@ def make_synthetic_symbol(config):
     # here was SettingWithCopyWarning.. 
     symbol["feed"].iloc[-1,symbol["feed"].columns.get_loc('end_of_episode')] = True
     symbol["feed"].index = pd.date_range(start=config.get('start_date', '1/1/2018'), freq=config.get('period','1d'), periods=len(symbol['feed'].index))
+    symbol["feed"]["symbol_code"] = symbol["code"]
     return symbol
 
 def get_episodes_lengths(feed):
@@ -260,7 +261,7 @@ def make_folds(config):
             all_episodes = [*all_episodes, *episodes]
             folds.append([a,b])
             for e in episodes:
-                if e[1] - e[0] < config["min_episode_length"]:
+                if e[1] - e[0] < config.get("min_episode_length",1):
                     ic('end - start ', end - start, ' max_episode_length ', config["max_episode_length"], ' min_episode_length ', config["min_episode_length"])
                     warnings.warn("some episode length is less then min_episode_length  ¯\_(ツ)_/¯. Try to fix your config", Warning)
 
@@ -309,7 +310,7 @@ def test_make_folds():
         # print(s["episodes"])
 
 
-def make_symbols(num_symbols=5, num_of_samples=666, shatter_on_episode_on_creation = False):
+def make_symbols(num_symbols=5, num_of_samples=666, shatter_on_episode_on_creation = False, process = SIN):
     # TODO: rename --> make_synthetic_symbols
 
     symbols=[]
@@ -331,7 +332,7 @@ def make_symbols(num_symbols=5, num_of_samples=666, shatter_on_episode_on_creati
               "max_episode_steps": 11,
               # "max_episode_steps": 152,
               # "process": 'flat',
-              "process": SIN,
+              "process": process,
               "price_value": 100,
               "shatter_on_episode_on_creation": shatter_on_episode_on_creation}
 
@@ -357,13 +358,12 @@ def get_train_test_feed(config, train_only=False, test_only=False):
 
     for s in config["symbols"]:
         print(s["feed"].to_markdown())
-        return
         lengths = get_episodes_lengths(s["feed"])
         # print(f'before make_folds {lengths=}')
         assert min(lengths) > 3
 
 
-    test_fold_index = config["test_fold_index"]
+    test_fold_index = config.get("test_fold_index",0)
     symbols = config["symbols"]
     train_feed = pd.DataFrame()
     test_feed = pd.DataFrame()
@@ -412,48 +412,47 @@ def create_multy_symbol_env(config):
 
     ic.disable()
     # do some parameters check here
-    if config["make_folds"] == True and config["test_fold_index"] >= config["num_folds"]:
+    if config["make_folds"] == True and config.get('test_fold_index',0) >= config.get('num_folds',3):
         raise ValueError(' test_fold_index is bigger then num_folds ¯\_(ツ)_/¯')
 
     # i = [0 if config["test"] == False else 1]
     # print('i ', i)
     dataset = get_dataset(config)#.drop('symbol', axis=1) # [ 0 if config["test"] == False else 1]
-    # print('dataset is ready')
-    # print(type(dataset), dataset)
-    # ic(dataset.to_markdown())
-    # return
+
     exchanges=[]
     wallets=[]
-    # exchange_options = ExchangeOptions(commission=config["symbols"][-1]["commission"], spread=config["symbols"][-1]["spread"])
+    
     exchange_options = ExchangeOptions(commission=config["symbols"][-1]["commission"], config=config)
 
-    # price = Stream.source(list(dataset["close"]), dtype="float").rename("USDT-ASSET")
+    ends = dataset.loc[dataset['end_of_episode'] == True]
+    print(ends)
     prices=[]
     for i,s in enumerate(config["symbols"],0):
         price=[]
         for j in range(len(config["symbols"])):
-            d = dataset.loc[dataset["symbol_code"]==j]
+            values = config["symbols"][j]["feed"]["close"].values
             if j == i:
-                # price.extend(config["symbols"][i]["feed"]["close"].values)
-                price.extend(d["close"].values)
+                price.extend(values)
             else:
-                # d = dataset.loc[dataset["symbol_code"]==i]
-                # price.extend(np.ones(len(config["symbols"][j]["feed"]["close"])))
-                # вот тут единичками нужно записать оставшееся пространство 
-                price.extend(np.ones(len(d["close"])))
 
-        # REFACTOR here
-        # "{config['base_symbol']}-{s['name']}"
-        prices.append(Stream.source(price, dtype="float").rename(f"USDT-AST{i}"))
+                price.extend(np.ones(len(values)))
+
+
+        symbol_name = s["name"]
+        base_symbol_name = config.get("base_symbol", "USDT")
+        prices.append(Stream.source(price, dtype="float").rename(f"{base_symbol_name}/{symbol_name}"))
 
     exchange = Exchange('binance', service=execute_order, options=exchange_options)(*prices)
+
+    # FIXME: USDT --> to some base account curtrency from config
     USDT = Instrument("USDT", 2, "USD Tether")
     cash = Wallet(exchange, 1000 * USDT)  # This is the starting cash we are going to use
     wallets.append(cash)
 
     # create assets wallets
     for i,s in enumerate(config["symbols"],0):
-        asset = Instrument(f'AST{i}', 5, s['name'])
+        asset_name = s['name']
+        asset = Instrument(f'{asset_name}', 5, s['name'])
         asset = Wallet(exchange, 0 * asset)  # And we will start owning 0 stocks of TTRD
         wallets.append(asset)
 
