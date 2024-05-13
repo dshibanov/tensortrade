@@ -291,8 +291,7 @@ def test_end_episodes():
             step += 1
             volumes = get_wallets_volumes(get_action_scheme(env).portfolio.wallets)
 
-        # row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
-        row = np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
+        row = np.append(np.append(obs[-1], np.append(get_observer(env).symbol_code, info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
         observations.append(row)
         volumes = get_wallets_volumes(get_action_scheme(env).portfolio.wallets)
     track = pd.DataFrame(observations)
@@ -304,13 +303,8 @@ def test_spread():
     print("_______test_spread_____")
     num_symbols=5
     symbols=[]
-    for i in range(num_symbols):
-        if i == 2:
-            symbols.append(make_flat_symbol("AST"+str(i), i, commission=0, spread=1.13))
-        elif i == 4:
-            symbols.append(make_flat_symbol("AST"+str(i), i, commission=0, spread=3.66))
-        else:
-            symbols.append(make_flat_symbol("AST"+str(i), i, commission=0, spread=0.01))
+
+    symbols = make_symbols(process=FLAT)
 
     config = {
               # "symbols": make_symbols(num_symbols, 100, True),
@@ -324,6 +318,7 @@ def test_spread():
               "make_folds": False,
               "test": False
              }
+
     exchange_options = ExchangeOptions(commission=config["symbols"][-1]["commission"],
                                        # spread=config["symbols"][-1]["spread"])
                                        config=config)
@@ -379,8 +374,7 @@ def test_spread():
             step += 1
             volumes = get_wallets_volumes(get_action_scheme(env).portfolio.wallets)
 
-        # row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
-        row = np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
+        row = np.append(np.append(obs[-1], np.append(get_observer(env).symbol_code, info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
         observations.append(row)
         volumes = get_wallets_volumes(get_action_scheme(env).portfolio.wallets)
     track = pd.DataFrame(observations)
@@ -468,6 +462,8 @@ def test_multy_symbols():
               "use_force_sell": True,
               "num_service_cols" : 1,
               "make_folds": False,
+              "num_folds":5,
+              "max_episode_length": 5,
               "test": False
              }
 
@@ -491,8 +487,9 @@ def test_multy_symbols():
 
     # test feed
     while done == False and step < 242:
-        print('obs:: ', obs[-1], dataset.iloc[step].close)
-        assert pytest.approx(obs[-1], 0.001) == dataset.iloc[step].close
+        observed_close = obs[-1]
+        # print('obs:: ', obs[-2], dataset.iloc[step].close)
+        assert pytest.approx(observed_close , 0.001) == dataset.iloc[step].close
         # assert pytest.approx(obs[-1][1], 0.001) == dataset.iloc[step].symbol_code
         # assert pytest.approx(obs[-1][2], 0.001) == dataset.iloc[step].end_of_episode
 
@@ -529,7 +526,9 @@ def test_multy_symbols():
             assert math.isnan(v) == False
 
         # row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
-        row = np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
+        # row = np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
+        row = np.append(np.append(obs[-1], np.append(get_observer(env).symbol_code, info["end_of_episode"])),
+                        np.append([action, info['net_worth']], volumes))
         observations.append(row)
         volumes = get_wallets_volumes(get_action_scheme(env).portfolio.wallets)
 
@@ -553,7 +552,8 @@ def test_multy_symbol_simple_trade_close_manually():
               "use_force_sell": False,
               "num_service_cols" : 1,
               "make_folds": False,
-              "test": False
+              "test": False,
+              "base_symbol": 'USDT'
              }
 
     dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
@@ -574,7 +574,9 @@ def test_multy_symbol_simple_trade_close_manually():
         volumes.append(float(balance.size))
 
 
-    observations=[np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))]
+    # observations=[np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))]
+    observations=[np.append(np.append(obs[-1], np.append(get_observer(env).symbol_code, info["end_of_episode"])), np.append([action, info['net_worth']], volumes))]
+
 
     # test feed
     while done == False and step < 242:
@@ -606,10 +608,8 @@ def test_multy_symbol_simple_trade_close_manually():
         for v in volumes[-(len(volumes)-1):]:
             net_worth += v*obs[-1]
 
-        # print("info___: ", info)
-        # np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), 
-        # row = np.append(obs[-1], np.append([action, info['net_worth']], volumes))
-        row = np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
+        row = np.append(np.append(obs[-1], np.append(get_observer(env).symbol_code, info["end_of_episode"])),
+                        np.append([action, info['net_worth']], volumes))
         observations.append(row)
         volumes = get_wallets_volumes(get_action_scheme(env).portfolio.wallets)
 
@@ -656,12 +656,12 @@ def test_multy_symbol_simple_use_force_sell():
         balance = w.total_balance
         instruments.append(str(balance.instrument))
         volumes.append(float(balance.size))
-    observations=[np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))]
+    observations=[np.append(np.append(obs[-1], np.append(get_observer(env).symbol_code, info["end_of_episode"])), np.append([action, info['net_worth']], volumes))]
 
     # test feed
     while done == False and step < 3420:
         assert pytest.approx(obs[-1], 0.001) == dataset.iloc[step].close
-        assert pytest.approx(info["symbol_code"], 0.001) == dataset.iloc[step].symbol_code
+        assert pytest.approx(get_observer(env).symbol_code, 0.001) == dataset.iloc[step].symbol_code
 
         if (step > 57 and step < 63): #  or (step >= 79 and step < 82) or (step >= 119 and step < 123) or (step >= 159 and step < 164):
             # sell 
@@ -689,7 +689,7 @@ def test_multy_symbol_simple_use_force_sell():
         for v in volumes[-(len(volumes)-1):]:
             net_worth += v*obs[-1]
 
-        row = np.append(np.append(obs[-1], np.append(info["symbol_code"], info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
+        row = np.append(np.append(obs[-1], np.append(get_observer(env).symbol_code, info["end_of_episode"])), np.append([action, info['net_worth']], volumes))
         observations.append(row)
         volumes = get_wallets_volumes(get_action_scheme(env).portfolio.wallets)
 
@@ -731,27 +731,6 @@ def test_make_synthetic_symbol():
 
             print(ep_length, config["max_episode_steps"])
             assert ep_length <= config["max_episode_steps"]
-
-
-
-# @pytest.mark.skip()
-# # maybe this is useless now
-# def test_get_episode_lengths():
-#     result = get_episode_lengths(31, 10)
-#     # print(result, result.sum())
-#     assert result.sum() == 31
-#     result = get_episode_lengths(34, 10)
-#     # print(result, result.sum())
-#     assert result.sum() == 34
-#     result = get_episode_lengths(37, 10)
-#     # print(result, result.sum())
-#     assert result.sum() == 37
-#     result = get_episode_lengths(61, 13)
-#     # print(result, result.sum())
-#     assert result.sum() == 61
-#     result = get_episode_lengths(39, 20)
-#     # print(result, result.sum())
-#     assert result.sum() == 39
 
 @pytest.mark.skip()
 # it looks like after flattening np.shape(obs) != env.observer.observation_space.shape
@@ -1149,46 +1128,9 @@ def test_create_ms_env():
     config["nn_topology_c_to_b_ratio"] = 0.7
     config["nn_topology_h_to_l_ratio"] = 2
 
-    # print('no folds')
-    # config["make_folds"] = False
-    # config = make_folds(config)
-    # print(get_dataset(config)[0].to_markdown())
-    # return
-
-    # some mechanisms of creating feed are stochastic
-    # so we need to repeat test many times to make sure that there are no bugs
-    # for i in range(20):
-    #     config = make_folds(config)
-
-    #     print('train')
-    #     env = create_multy_symbol_env(config)
 
     #     # TODO:
     #         # check price_streams length and values
-    #     dataset = get_dataset(config)
-    #     print(f'len(dataset) ', len(dataset))
-    #     print(get_action_scheme(env).portfolio.exchanges[-1])
-    #     print(len(get_action_scheme(env).portfolio.exchanges[-1]._price_streams['USDT/AST0'].iterable))
-    #     print(len(get_action_scheme(env).portfolio.exchanges[-1]._price_streams['USDT/AST1'].iterable))
-    #     streams = get_action_scheme(env).portfolio.exchanges[-1]._price_streams
-    #     for k in streams:
-    #         print(k)
-    #         print('len_iterable ', len(streams[k].iterable))
-    #         assert len(streams[k].iterable) == len(dataset)
-
-
-    # for i in range(20):
-    #     print('test')
-    #     config = make_folds(config)
-    #     config["test"] = True
-    #     env = create_multy_symbol_env(config)
-    #     dataset = get_dataset(config)
-    #     print(f'len(dataset) ', len(dataset))
-    #     streams = get_action_scheme(env).portfolio.exchanges[-1]._price_streams
-    #     for k in streams:
-    #         print(k)
-    #         print('len_iterable ', len(streams[k].iterable))
-    #         assert len(streams[k].iterable) == len(dataset)
 
 
     for i in range(20):
@@ -1279,11 +1221,9 @@ def test_env_different_symbol_lengths():
                     "spread": spread,
                     "commission": commission,
                     "code": i,
-                    "length": lengths[i],
+                    "num_of_samples": lengths[i],
                     "max_episode_steps": 11,
-                    # "max_episode_steps": 152,
-                    # "process": 'flat',
-                    "process": 'sin',
+                    "process": SIN,
                     "price_value": 100,
                     "shatter_on_episode_on_creation": False
                     }
@@ -1939,27 +1879,39 @@ if __name__ == "__main__":
     # TODO: revise all of these tests and remove useless
 
 
-    # test_ray_example()
-    # test_idle_embedded_tuners_hpo()
+    # test_ray_example() # OK but we should remove it
+    # test_idle_embedded_tuners_hpo() # looks OK but should be moved
 
 
-    # test_env_different_symbol_lengths()
-    # test_get_dataset2()
-    # test_get_dataset()
-    # test_make_folds()
-    # test_shape_to_topology()
-    # test_eval_fold()
-    # test_get_cv_score()
-    # test_hpo()
-    # test_mlflow()
-    # test_simulate() # NOT OK
+    # test_env_different_symbol_lengths() # FIXME: NOT OK
+    # test_get_dataset2() # OK
+    # test_get_dataset() # OK
+
+    # test_make_folds() # OK
+    # test_shape_to_topology() # OK
 
 
-    # test_create_ms_env() # OK
+    # FIXME
+    # !! some of these tests testing functionality which is not related to
+    # tensortrade, so they should be removed or moved to searcher project
+    #
+    # !! check before that tests are working in searcher 
+
+
+    # test_eval_fold() # OK but should be removed
+    # test_get_cv_score() # OK but should be removed
+    # test_hpo() # FIXME: not ok .. but this is related to searcher functionality so
+                 # we should remove it from here   
+    # test_mlflow() # move it to somewhere
+    # test_simulate() # FIXME: NOT OK
+                    # checkpoint not found error
+
+
+    # test_create_ms_env() # NOT OK
     # eval('/home/happycosmonaut/ray_results/DQN_2023-11-16_21-27-38/DQN_multy_symbol_env_4bf15_00000_0_2023-11-16_21-27-40/checkpoint_000002')
     # test_get_train_test_feed() # OK
-    # test_observation_shape() # some problems with this test
-    # test_obs_space_of() # OK
+    # test_observation_shape() # FIXME: some problems with this test
+    # # test_obs_space_of() # OK
     test_multy_symbols() # OK
     # test_multy_symbol_simple_trade_close_manually() # OK
     # test_multy_symbol_simple_use_force_sell() # OK
@@ -1967,4 +1919,3 @@ if __name__ == "__main__":
     # test_comission() # NOT OK
     # test_spread() # OK
     # test_make_synthetic_symbol() # OK
-    # test_get_episode_lengths() # deprecated.. we need test for test_get_episodes_lengths
