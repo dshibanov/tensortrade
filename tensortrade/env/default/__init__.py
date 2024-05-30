@@ -156,6 +156,8 @@ def make_synthetic_symbol(config):
         symbol["feed"] = make_sin_feed(symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
     elif config["process"] == FLAT:
         symbol["feed"] = make_flat_feed(symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
+    else:
+        raise Exception("Wrong symbol name")
 
     if config.get("shatter_on_episode_on_creation", False) == True:
         ep_lengths = get_episodes_lengths(symbol["feed"])

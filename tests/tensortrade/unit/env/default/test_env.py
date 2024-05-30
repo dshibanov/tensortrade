@@ -715,6 +715,8 @@ def test_make_synthetic_symbol():
               "max_episode_steps": 41,
               # "max_episode_steps": 152,
               "process": FLAT,
+              # "process": 'KUSKS', # this one for checking exception when
+                  # processes is not correct
               "price_value": 100,
               "start_date": '1/1/2011'}
 
@@ -1916,10 +1918,10 @@ if __name__ == "__main__":
     # test_get_train_test_feed() # OK
     # test_observation_shape() # FIXME: some problems with this test
     # # test_obs_space_of() # OK
-    test_multy_symbols() # OK
+    # test_multy_symbols() # OK
     # test_multy_symbol_simple_trade_close_manually() # OK
     # test_multy_symbol_simple_use_force_sell() # OK
     # test_end_episodes() # OK
     # test_comission() # NOT OK
     # test_spread() # OK
-    # test_make_synthetic_symbol() # OK
+    test_make_synthetic_symbol() # OK
