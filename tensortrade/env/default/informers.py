@@ -26,5 +26,6 @@ class MultySymbolEnvInformer(Informer):
             # FIXME:
             # we can find out & return current_symbol_code somehow
             # 'symbol_code': env.current_symbol_code,
+            'symbol_code': env.observer.symbol_code,
             'end_of_episode': env.end_of_episode
         }
