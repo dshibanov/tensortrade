@@ -149,8 +149,29 @@ def make_flat_feed(length=1000, price_value=100):
 
 
 def make_synthetic_symbol(config):
+
+    from datetime import date
+    from dateutil.relativedelta import relativedelta, MO
+
+    today = date.today()
+    print(today)
+    last_monday = today + relativedelta(weekday=MO(-1))
+    print(last_monday)
+
+    rd = relativedelta(minutes=60*24)
+    print(rd)
+    print(today+rd)
+
+
+    rd = relativedelta(minutes=60*24*7)
+    print(rd)
+    print(today+rd)
+    # return
+
     symbol = config
     end_of_episode = pd.Series(np.full(config["num_of_samples"]+1, False))
+
+    print('end_of_episode ', end_of_episode)
 
     if config["process"] == SIN:
         symbol["feed"] = make_sin_feed(symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
@@ -161,6 +182,7 @@ def make_synthetic_symbol(config):
 
     if config.get("shatter_on_episode_on_creation", False) == True:
         ep_lengths = get_episodes_lengths(symbol["feed"])
+        print('ep_lengths ', ep_lengths)
         end_of_episode_index=0
         for i, l in enumerate(ep_lengths,0):
             end_of_episode_index += l
@@ -339,6 +361,7 @@ def make_symbols(num_symbols=5, num_of_samples=666, shatter_on_episode_on_creati
               "shatter_on_episode_on_creation": shatter_on_episode_on_creation}
 
         symbols.append(make_synthetic_symbol(config))
+
     return symbols
 
 def get_wallets_volumes(wallets):
@@ -423,7 +446,6 @@ def create_multy_symbol_env(config):
 
     exchanges=[]
     wallets=[]
-    
     exchange_options = ExchangeOptions(commission=config["symbols"][-1]["commission"], config=config)
 
     ends = dataset.loc[dataset['end_of_episode'] == True]
@@ -432,6 +454,9 @@ def create_multy_symbol_env(config):
     for i,s in enumerate(config["symbols"],0):
         price=[]
         for j in range(len(config["symbols"])):
+            # FIXME: symbols should not have feed, only quotes and timeframes
+            #        we make feed for 'create' method only
+            #
             values = config["symbols"][j]["feed"]["close"].values
             if j == i:
                 price.extend(values)

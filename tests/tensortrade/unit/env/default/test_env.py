@@ -23,13 +23,14 @@ import copy
 from ray.rllib.algorithms.dqn.dqn import DQNConfig
 from ray import air, tune
 from ray.air.config import RunConfig, ScalingConfig, CheckpointConfig
-from ray.rllib.utils import check_env
+# from ray.rllib.utils import check_env
 from ray.rllib.algorithms.algorithm import Algorithm
 from icecream import ic
 # from plot import plot_history, set_gruvbox
 from tensortrade.utils.plot import plot_history, set_gruvbox
 
 from ray.tune.schedulers import PopulationBasedTraining
+from evaluators import *
 
 register_env("multy_symbol_env", create_multy_symbol_env)
 
@@ -467,8 +468,11 @@ def test_multy_symbols():
               "test": False
              }
 
+    print(config)
+    # return
     dataset = pd.concat([config["symbols"][i]["feed"] for i in range(len(config["symbols"]))])
     env = create_multy_symbol_env(config)
+    # return
     action = 0 # 0 - buy asset, 1 - sell asset
     obs,_ = env.reset()
     info = get_info(env)
@@ -714,7 +718,8 @@ def test_make_synthetic_symbol():
               "num_of_samples": 31,
               "max_episode_steps": 41,
               # "max_episode_steps": 152,
-              "process": FLAT,
+              # "process": FLAT,
+              "process": SIN,
               # "process": 'KUSKS', # this one for checking exception when
                   # processes is not correct
               "price_value": 100,
@@ -723,6 +728,7 @@ def test_make_synthetic_symbol():
     config["shatter_on_episode_on_creation"] = True
     s = make_synthetic_symbol(config)
     print(s["feed"])
+    # print(s)
 
     assert 'symbol' not in s["feed"].columns
     assert 'close' in s["feed"].columns
@@ -895,22 +901,22 @@ def eval_fold(params):
     score = 2
     framework = 'torch'
     # current_config = set_params(config, params)
-    current_config = copy.deepcopy(params)#.copy()
+    train_config = copy.deepcopy(params)#.copy()
     # print('current_config: feed ', current_config["symbols"][0]["feed"])
-    ic(current_config["symbols"][0]["feed"])
-    symbols = current_config["symbols"]
-    test_fold_index = current_config["test_fold_index"]
+    ic(train_config["symbols"][0]["feed"])
+    symbols = train_config["symbols"]
+    test_fold_index = train_config["test_fold_index"]
     # print('test_fold_index ', test_fold_index)
     ic(test_fold_index)
 
-    eval_config = current_config
-    eval_config["test"] = True
+    test_config = train_config
+    test_config["test"] = True
 
     config = (
         DQNConfig()
         # .environment(SimpleCorridor, env_config={"corridor_length": 10})
         # .environment(env="multy_symbol_env", env_config=config)
-        .environment(env="multy_symbol_env", env_config=current_config)
+        .environment(env="multy_symbol_env", env_config=train_config)
         # Training rollouts will be collected using just the learner
         # process, but evaluation will be done in parallel with two
         # workers. Hence, this run will use 3 CPUs total (1 for the
@@ -929,7 +935,7 @@ def eval_fold(params):
         #     evaluation_parallel_to_training=evaluation_parallel_to_training,
         #     # evaluation_config=PGConfig.overrides(
             # evaluation_config=DQNConfig.overrides(env_config={"test": True}, explore=True
-            evaluation_config=DQNConfig.overrides(env_config=eval_config
+            evaluation_config=DQNConfig.overrides(env_config=test_config
         #         env_config={
         #             # Evaluate using LONGER corridor than trained on.
         #             "corridor_length": 5,
@@ -987,7 +993,7 @@ def eval_fold(params):
         # get_policy from checkpoint
         #
         #
-    test_config = current_config
+    test_config = train_config
     test_config["test"] = True
     # test_env = create_multy_symbol_env(test_config)
 
@@ -999,8 +1005,6 @@ def eval_fold(params):
     # should report score here 
     # return np.mean(track["reward"].dropna())
     return {"score": np.mean(track["reward"].dropna())}
-# def get_action_scheme(env):
-#     return env.env.env.env.action_scheme
 
 
 def eval(path_to_checkpoint=''):
@@ -1441,9 +1445,13 @@ def test_get_dataset2():
 def get_cv_scores(config):
     num_folds = config["num_folds"]
     config = make_folds(config)
-    config["test_fold_index"] = tune.grid_search(np.arange(0,num_folds))
+    # config["test_fold_index"] = tune.grid_search(np.arange(0,num_folds))
 
-    num_iterations=config.get('num_train_iterations', 2)
+    results = []
+    for test_fold_index in np.arange(0,num_folds):
+        config["test_fold_index"] = test_fold_index
+        results.append(eval_fold(config))
+    # num_iterations=config.get('num_train_iterations', 2)
     # stop = {
     #     # "training_iteration": args.stop_iters,
     #     # "timesteps_total": args.stop_timesteps,
@@ -1453,33 +1461,16 @@ def get_cv_scores(config):
     #     # "episode_reward_mean": 15,
     #     "score": 57
     # }
-    tuner = tune.Tuner(
-        eval_fold,
-        param_space=config,
+    # tuner = tune.Tuner(
+    #     eval_fold,
+    #     param_space=config,
+    #     run_config=air.RunConfig(verbose=1),
+    # )
+    # results = tuner.fit()
 
-        # run_config=air.RunConfig(stop=stop, verbose=1, checkpoint_config=CheckpointConfig(checkpoint_frequency=2)),
-        # run_config=air.RunConfig(stop=stop, verbose=1),
-        run_config=air.RunConfig(verbose=1),
-        # run_config=RunConfig(stop=TrialPlateauStopper(metric="score"))
-        # run_config=RunConfig(stop=TrialPlateauStopper(metric="reward"),
-        #                      # checkpoint_config=train.CheckpointConfig(checkpoint_frequency=10),
-        #                      checkpoint_config=CheckpointConfig(checkpoint_frequency=3),
-        #                      verbose=2)
-    )
-    # results = tuner.fit().get_best_result(metric="score", mode="min")
-    # results = tuner.fit().get_dataframe(filter_metric="score", filter_mode="min")
-    results = tuner.fit()
-
-    df = results.get_dataframe(filter_metric="score", filter_mode="min")
-    # print('this is results.. ')
-    # print(type(results))
-    # print(results)
-
-    # ic(df)
-    # cv_score = df["score"]
-    # print(f'cv_score {cv_score}')
-    # return cv_score
-    return df
+    # df = results.get_dataframe(filter_metric="score", filter_mode="min")
+    return results
+    # return df
 
 
 def test_get_cv_score():
@@ -1904,8 +1895,6 @@ if __name__ == "__main__":
     # !! check before that tests are working in searcher 
 
 
-    # test_eval_fold() # OK but should be removed
-    # test_get_cv_score() # OK but should be removed
     # test_hpo() # FIXME: not ok .. but this is related to searcher functionality so
                  # we should remove it from here   
     # test_mlflow() # move it to somewhere
@@ -1918,10 +1907,12 @@ if __name__ == "__main__":
     # test_get_train_test_feed() # OK
     # test_observation_shape() # FIXME: some problems with this test
     # # test_obs_space_of() # OK
-    # test_multy_symbols() # OK
+    test_multy_symbols() # OK
     # test_multy_symbol_simple_trade_close_manually() # OK
     # test_multy_symbol_simple_use_force_sell() # OK
     # test_end_episodes() # OK
     # test_comission() # NOT OK
     # test_spread() # OK
-    test_make_synthetic_symbol() # OK
+    # test_make_synthetic_symbol() # OK
+    # test_eval_fold() # OK but should be removed
+    # test_get_cv_score() # OK but should be removed
