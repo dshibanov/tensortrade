@@ -8,7 +8,8 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "3.10.1"
 pytest = "^7.4.0"
-finplot = { git = "git@github.com:dshibanov/finplot.git", branch = "master" }
+# finplot = { git = "git@github.com:dshibanov/finplot.git", branch = "master" }
+finplot = { git = "https://github.com/dshibanov/finplot.git", branch = "master" }
 numpy = ">=1.17.0"
 pandas = ">=0.25.0"
 gym = ">=0.25.2"
