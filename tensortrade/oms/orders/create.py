@@ -277,11 +277,14 @@ def proportion_order(portfolio: 'Portfolio',
 
         side = TradeSide.BUY if is_source_base else TradeSide.SELL
         #price = exchange_pair.price(side)
+
+        spread = Decimal(exchange.options.spread(exchange_pair.pair.quote.symbol))
+        price = exchange.quote_price(exchange_pair.pair, side)
         params = {
             **base_params,
             'side': side,
             'exchange_pair': exchange_pair,
-            'price': exchange_pair.price(side) + Decimal(exchange.options.spread(exchange_pair.pair.quote.symbol)) if is_source_base else exchange_pair.price(side),
+            'price': price + spread if is_source_base else price,
             'quantity': quantity
         }
 

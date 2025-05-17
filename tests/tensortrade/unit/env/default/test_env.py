@@ -15,24 +15,24 @@ from tensortrade.feed import DataFeed, Stream, NameSpace
 from tensortrade.oms.services.execution.simulated import execute_order
 
 import numpy as np
-import ray
-from ray import tune
-from ray.tune.registry import register_env
+# import ray
+# from ray import tune
+# from ray.tune.registry import register_env
 from tensortrade.env.default import *
 import copy
-from ray.rllib.algorithms.dqn.dqn import DQNConfig
-from ray import air, tune
-from ray.air.config import RunConfig, ScalingConfig, CheckpointConfig
+# from ray.rllib.algorithms.dqn.dqn import DQNConfig
+# from ray import air, tune
+# from ray.air.config import RunConfig, ScalingConfig, CheckpointConfig
 # from ray.rllib.utils import check_env
-from ray.rllib.algorithms.algorithm import Algorithm
+# from ray.rllib.algorithms.algorithm import Algorithm
 from icecream import ic
 # from plot import plot_history, set_gruvbox
-from tensortrade.utils.plot import plot_history, set_gruvbox
+# from tensortrade.utils.plot import plot_history, set_gruvbox
 
-from ray.tune.schedulers import PopulationBasedTraining
-from evaluators import *
+# from ray.tune.schedulers import PopulationBasedTraining
+# from evaluators import *
 
-register_env("multy_symbol_env", create_multy_symbol_env)
+# register_env("multy_symbol_env", create_multy_symbol_env)
 
 @pytest.fixture
 def portfolio():
@@ -1052,12 +1052,12 @@ if __name__ == "__main__":
                     # checkpoint not found error
 
 
-    test_create_ms_env() # NOT OK
+    # test_create_ms_env() # NOT OK
     # eval('/home/happycosmonaut/ray_results/DQN_2023-11-16_21-27-38/DQN_multy_symbol_env_4bf15_00000_0_2023-11-16_21-27-40/checkpoint_000002')
     # test_get_train_test_feed() # OK
     # test_observation_shape() # FIXME: some problems with this test
     # # test_obs_space_of() # OK
-    # test_multy_symbols() # OK
+    test_multy_symbols() # OK
     # test_multy_symbol_simple_trade_close_manually() # OK
     # test_multy_symbol_simple_use_force_sell() # OK
     # test_end_episodes() # OK

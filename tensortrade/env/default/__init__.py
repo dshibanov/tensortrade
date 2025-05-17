@@ -26,6 +26,7 @@ import warnings
 from icecream import ic
 
 import static_frame as sf
+from quantutils.parameters import get_param
 
 
 # SYNTHETIC PROCESSES
@@ -36,6 +37,40 @@ FLAT = 'FLAT'
 # turn off pandas SettingWithCopyWarning 
 pd.set_option('mode.chained_assignment', None)
 
+
+def close(obs):
+    return obs[0]
+
+def get_feed(env):
+    return get_env(env).config['data']['feed']
+
+def get_observer(env):
+    return env.env.env.env.observer
+
+def get_info(env):
+        return env.env.env.env.informer.info(env.env.env.env)
+
+def get_env(env):
+    return env.env.env.env
+
+def get_obs_header(env):
+    env = get_env(env)
+    one_point_header = list(env.config['data']['feed'].columns)
+    if 'symbol' in one_point_header:
+        one_point_header.remove('symbol')
+
+    if get_param(env.config['params'], 'multy_symbol_env')['value'] == True:
+        one_point_header.remove('end_of_episode')
+        one_point_header.remove('symbol_code')
+
+    window_size = get_param(env.config['params'],'window_size')['value']
+    header=[]
+    # add lag indexing in the beginning of name
+    for i in range(window_size-1,-1,-1):
+        for h in one_point_header:
+            header.append(f'{i}_{h}')
+
+    return header
 
 def get_info(env):
         return env.env.env.env.informer.info(env.env.env.env)

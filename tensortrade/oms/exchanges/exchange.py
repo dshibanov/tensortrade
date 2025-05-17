@@ -56,9 +56,12 @@ class ExchangeOptions:
         self.is_live = is_live
 
     def spread(self, trading_pair):
-        for s in self.config["symbols"]:
-            if s["name"] == trading_pair:
-                return s["spread"]
+        if trading_pair in self.config:
+            return self.config[trading_pair]['spread']
+        # raise symbolNotFound
+        # for s in self.config["symbols"]:
+        #     if s["name"] == trading_pair:
+        #         return s["spread"]
         # raise symbolNotFound
         return 0
 
