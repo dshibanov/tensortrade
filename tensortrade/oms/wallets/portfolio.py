@@ -68,6 +68,7 @@ class Portfolio(Component, TimedIdentifiable):
         self._net_worth = None
         self._performance = None
         self._keys = None
+        self.contracts = []
 
     @property
     def wallets(self) -> 'List[Wallet]':

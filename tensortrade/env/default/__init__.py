@@ -53,6 +53,10 @@ def get_info(env):
 def get_env(env):
     return env.env.env.env
 
+
+def get_exchange_pair(env):
+    self.current_symbol_code
+
 def get_obs_header(env):
     env = get_env(env)
     one_point_header = list(env.config['data']['feed'].columns)

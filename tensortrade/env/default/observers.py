@@ -47,6 +47,7 @@ def _create_wallet_source(wallet: 'Wallet', include_worth: bool = True) -> 'List
         streams += [free_balance, locked_balance, total_balance]
 
         if include_worth:
+            streams = wallet.exchange.streams()
             price = Stream.select(wallet.exchange.streams(), lambda node: node.name.endswith(symbol))
             worth = price.mul(total_balance).rename('worth')
             streams += [worth]
@@ -76,9 +77,15 @@ def _create_internal_streams(portfolio: 'Portfolio', service_cols=pd.DataFrame()
         sources += wallet.exchange.streams()
         sources += _create_wallet_source(wallet, include_worth=(symbol != base_symbol))
 
+    # create contracts_value stream
+    # free_balance = Stream.sensor(wallet, lambda w: w.balance.as_float(), dtype="float").rename("free")
+    contracts_balance = Stream.sensor(portfolio.contracts, lambda contracts: sum([c.value for c in contracts]),
+                                      dtype="float").rename("contracts_value")
+
+    sources += [contracts_balance]
     worth_streams = []
     for s in sources:
-        if s.name.endswith(base_symbol + ":/total") or s.name.endswith("worth"):
+        if s.name.endswith(base_symbol + ":/total") or s.name.endswith("worth") or s.name.endswith("contracts_value"):
             worth_streams += [s]
 
     net_worth = Stream.reduce(worth_streams).sum().rename("net_worth")

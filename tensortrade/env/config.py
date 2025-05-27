@@ -156,18 +156,18 @@ def get_timestamp(t):
     t = str(t)
     print(t)
     if len(t) > 10:
-        return datetime.datetime.strptime(t,'%Y-%m-%d  %H:%M:%S.%f').timestamp()
+        # return datetime.datetime.strptime(t,'%Y-%m-%d  %H:%M:%S.%f').timestamp()
+        return datetime.datetime.strptime(t, '%Y-%m-%d  %H:%M:%S').timestamp()
     else:
         return datetime.datetime.strptime(t,'%Y-%m-%d').timestamp()
 
 def get_bar_on_time(seria, current_time):
     # return bar index which consisted time 'current_time'
     i = 0
-    current_timestamp = get_timestamp(current_time)
+    current_timestamp = pd.to_datetime(current_time)
 
     for i, row in enumerate(seria.itertuples(), 1):
-
-        if get_timestamp(getattr(row,'Index')) > current_timestamp:
+        if pd.to_datetime(getattr(row, 'Index')) > current_timestamp:
             return i - 2
     return -1
 
@@ -635,7 +635,7 @@ class EnvConfig:
         exchanges=[]
         wallets=[]
         # exchange_options = ExchangeOptions(commission=config["symbols"][-1]["commission"], config=config)
-        exchange_options = ExchangeOptions(config=config['exchange_config'])
+        exchange_options = ExchangeOptions(config=config['exchange_config'], leverage=get_param(config['params'], 'leverage', None)['value'])
 
 
         prices=[]
@@ -646,20 +646,29 @@ class EnvConfig:
             no_price_indexes = indexes == True
             price.loc[indexes.values == False] = -666
             symbol_name = s["name"]
-            base_symbol_name = config.get("base_symbol", "USDT")
-            prices.append(Stream.source(price, dtype="float").rename(f"{base_symbol_name}/{symbol_name}"))
+            base_symbol_name = exchange_options.config.get(symbol_name)['base']
+            quote = exchange_options.config.get(symbol_name)['quote']
+            # prices.append(Stream.source(price, dtype="float").rename(f"{base_symbol_name}/{quote}"))
+            # I changed raname(..) like in this example https://www.tensortrade.org/en/latest/examples/train_and_evaluate_using_ray.html
+            prices.append(Stream.source(price, dtype="float").rename(f"{quote}-{base_symbol_name}"))
 
         exchange = Exchange('binance', service=execute_order, options=exchange_options)(*prices)
 
+        from decimal import Decimal
         # FIXME: USDT --> to some base account currency from config
-        USDT = Instrument("USDT", 5, "USD Tether")
+        # here precision base
+        precision = -Decimal(str(exchange_options.config.get(config["symbols"][0]['name'])['precision']['base'])).as_tuple().exponent
+        USDT = Instrument("USDT", precision, "USD Tether")
         cash = Wallet(exchange, 1000 * USDT)  # This is the starting cash we are going to use
         wallets.append(cash)
 
         # create assets wallets
         for i,s in enumerate(config["symbols"],0):
-            asset_name = s['name']
-            asset = Instrument(f'{asset_name}', 5, s['name'])
+
+            precision = -Decimal(str(exchange_options.config.get(s['name'])['precision']['quote'])).as_tuple().exponent
+            # precision  = exchange_options.config.get(symbol_name)['precision']['quote']
+            asset_name = exchange_options.config.get(s['name'])['base']
+            asset = Instrument(f'{asset_name}', precision, asset_name)
             asset = Wallet(exchange, 0 * asset)  # And we will start owning 0 stocks of TTRD
             wallets.append(asset)
 

@@ -42,6 +42,7 @@ class ExchangeOptions:
     def __init__(self,
                  commission: float = 0.003,
                  config={},
+                 leverage=1,
                  min_trade_size: float = 1e-6,
                  max_trade_size: float = 1e6,
                  min_trade_price: float = 1e-8,
@@ -49,6 +50,7 @@ class ExchangeOptions:
                  is_live: bool = False):
         self.commission = commission
         self.config = config
+        self.leverage = leverage
         self.min_trade_size = min_trade_size
         self.max_trade_size = max_trade_size
         self.min_trade_price = min_trade_price
@@ -118,7 +120,8 @@ class Exchange(Component, TimedIdentifiable):
         """
         return list(self._price_streams.values())
 
-    def quote_price(self, trading_pair: "TradingPair", side) -> "Decimal":
+
+    def quote_price(self, trading_pair: "TradingPair") -> "Decimal":
         """The quote price of a trading pair on the exchange, denoted in the
         core instrument.
 

@@ -19,6 +19,48 @@ from tensortrade.oms.orders.criteria import Stop, Limit
 from decimal import Decimal
 
 
+
+def derivative_order(side: "TradeSide",
+                 exchange_pair: "ExchangePair",
+                 price: float,
+                 size: float,
+                 portfolio: "Portfolio",
+                 leverage: int) -> "Order":
+    """Creates a market order.
+
+    Parameters
+    ----------
+    side : `TradeSide`
+        The side of the order.
+    exchange_pair : `ExchangePair`
+        The exchange pair to perform the order for.
+    price : float
+        The current price.
+    size : float
+        The size of the order.
+    portfolio : `Portfolio`
+        The portfolio being used in the order.
+
+    Returns
+    -------
+    `Order`
+        A market order.
+    """
+    order = Order(
+        step=portfolio.clock.step,
+        side=side,
+        trade_type=TradeType.MARKET,
+        exchange_pair=exchange_pair,
+        price=price,
+        quantity=(size * portfolio.base_instrument),
+        portfolio=portfolio,
+        derivative=True,
+        leverage=leverage
+    )
+
+    return order
+
+
 def market_order(side: "TradeSide",
                  exchange_pair: "ExchangePair",
                  price: float,
@@ -279,7 +321,7 @@ def proportion_order(portfolio: 'Portfolio',
         #price = exchange_pair.price(side)
 
         spread = Decimal(exchange.options.spread(exchange_pair.pair.quote.symbol))
-        price = exchange.quote_price(exchange_pair.pair, side)
+        price = exchange.quote_price(exchange_pair.pair)#, side)
         params = {
             **base_params,
             'side': side,

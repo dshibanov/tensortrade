@@ -19,7 +19,7 @@ class ExchangePair:
 
     def price(self, side) -> "Decimal":
         """The quoted price of the trading pair. (`Decimal`, read-only)"""
-        return self.exchange.quote_price(self.pair, side)
+        return self.exchange.quote_price(self.pair)
 
     def inverse_price(self, side) -> "Decimal":
         """The inverse price of the trading pair. (`Decimal, read-only)"""
