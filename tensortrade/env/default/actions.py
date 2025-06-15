@@ -24,6 +24,57 @@ from tensortrade.oms.orders import (
 from tensortrade.oms.wallets import Portfolio
 from quantutils.parameters import get_param
 
+from abc import ABC, abstractmethod
+from decimal import Decimal
+
+class PlacementPolicy(ABC):
+    def __init__(self):
+        pass
+
+
+
+class StopLossPercent(PlacementPolicy):
+    def __init__(self,**kwargs):
+        self.percent = kwargs.get('percent', 5)
+
+    def __call__(self):
+        a = 5
+        return a
+
+class TakeProfitPercent(PlacementPolicy):
+    def __init__(self,**kwargs):
+        self.percent = kwargs.get('percent', 5)
+
+    def __call__(self):
+        a = 5
+        return a
+
+
+class LimitEntrySimple(PlacementPolicy):
+    def __init__(self,**kwargs):
+        self.percent = kwargs.get('percent', 5)
+
+    def __call__(self):
+        a = 5
+        return a
+
+
+class StopEntrySimple(PlacementPolicy):
+    def __init__(self,**kwargs):
+        self.percent = kwargs.get('percent', 5)
+
+    def __call__(self):
+        a = 5
+        return a
+
+class StopLossWickBelowPriorPeak(PlacementPolicy):
+    def __init__(self,**kwargs):
+        pass
+
+    def __call__(self):
+        a = 5
+        return a
+
 
 class TensorTradeActionScheme(ActionScheme):
     """An abstract base class for any `ActionScheme` that wants to be
@@ -52,6 +103,14 @@ class TensorTradeActionScheme(ActionScheme):
         super().__init__()
         self.portfolio: 'Portfolio' = None
         self.broker: 'Broker' = Broker()
+
+    @property
+    def active_limits(self):
+        if self.broker.executed:
+            return [{k:v} for k,v in self.broker.executed.items() if v.is_limit_order and v.is_active]
+        else:
+            return []
+
 
     @property
     def clock(self) -> 'Clock':
@@ -242,26 +301,38 @@ class MultySymbolBSH(TensorTradeActionScheme):
         self.started = False
 
 
+class TestActionScheme(MultySymbolBSH):
+    """ For testing purposes
+        Action scheme for multiple symbols environments with margin trade support
 
-class MSBSCMT(MultySymbolBSH):
-    """Multy-Symbol-Buy-Sell-Close-Margin-Trade
-        action scheme for multiple symbols environments with margin trade support
+        0: BUY1
+            buy with self.amount and self.leverage
 
-        3 actions:
+        1: SELL1
+            sell with self.amount and self.leverage
 
-            buy: long position (0)
-                close position if u have short
-                and then open long
+        2: BUY2
+            buy with self.amount*2 and self.leverage
 
-            sell: short position (1)
-                close position if u have long
-                and then open short
+        3: SELL2
+            sell with self.amount*2 and self.leverage
 
-            close: close position (2)
-                close position if u have any
-                and stay away from market
+        4: BUY_LIMIT
+            limit entry buy with self.amount and self.leverage
 
-        * scheme allows to hold not more then one contract!!
+        5: BUY_STOP
+            stop entry buy with self.amount and self.leverage
+
+        6: SELL_LIMIT
+            limit entry sell with self.amount and self.leverage
+
+        7: SELL_STOP
+            stop entry sell with self.amount and self.leverage
+
+        8: CLOSE
+            close all
+
+        * scheme allows to hold not more then one contract per symbol!!
 
     Parameters
     ----------
@@ -271,17 +342,22 @@ class MSBSCMT(MultySymbolBSH):
         The wallet to hold funds in the quote instrument.
     """
 
-    registered_name = "msbscmt"
+    registered_name = "test_action_scheme"
 
-    # def __init__(self, cash: 'Wallet', asset: 'Wallet'):
     def __init__(self, config):
         super().__init__(config)
         self.config = config
-        self._leverage = get_param(config['params'],'leverage')['value']
+        self._leverage = config.get('leverage', {'value': 5})['value']
         self.listeners = []
         self.action = 2
         self.started = False
-        self.amount = config['amount']
+        self.amount = config.get('amount', 10)
+
+        self.stop_loss_policy = config.get('stop_loss_policy', StopLossPercent(percent=5))
+        self.take_profit_policy = config.get('take_profit_policy', TakeProfitPercent(percent=5))
+        self.limit_entry_policy = config.get('limit_entry_policy', LimitEntrySimple(percent=5))
+        self.stop_entry_policy = config.get('stop_entry_policy', StopEntrySimple(percent=5))
+        self.last_action = None
 
     @property
     def action_space(self):
@@ -304,63 +380,111 @@ class MSBSCMT(MultySymbolBSH):
         self._leverage = value
 
     def get_orders(self, action: int, portfolio: 'Portfolio') -> 'Order':
+
+        if self.last_action and self.last_action == action and action not in [4,5,6,7]:
+            return []
+        else:
+            self.last_action = action
+
+
         order = None
         current_symbol_code = self.config["current_symbol_code"]
         cash = portfolio.wallets[0]
         asset = portfolio.wallets[current_symbol_code+1]
         contracts_num = len(portfolio.contracts)
+
+        if contracts_num > 0:
+            contract = portfolio.contracts[0]
+        elif contracts_num > 1:
+            print('So much contracts')
+            raise Exception(f'contracts_num > 1: {contracts_num}')
+
         self.action = action
 
         order = None
         current_symbol_code = self.config["current_symbol_code"]
         cash = portfolio.wallets[0]
         asset = portfolio.wallets[current_symbol_code+1]
-
         pair = portfolio.exchange_pairs[current_symbol_code]
 
-        if 5 > 3:
-            if contracts_num > 1:
-                print('So much contracts')
-                raise Exception(f'contracts_num > 1: {contracts_num}')
+        match action:
+            case 0:
+            # BUY1
+            #
+                quantity = get_asset_quantity(self.amount, self._leverage, pair, TradeSide.BUY)
+                # return [derivative_order(TradeSide('buy'), pair, pair.price(TradeSide.BUY), quantity, portfolio, leverage=self._leverage)]
+                return [derivative_order(TradeSide.BUY, pair, pair.price(TradeSide.BUY), quantity, portfolio, leverage=self._leverage)]
 
-            if contracts_num > 0:
-                contract = portfolio.contracts[0]
+            case 1:
+            # SELL1
+                quantity = get_asset_quantity(self.amount, self._leverage, pair, TradeSide.BUY)
+                return [derivative_order(TradeSide.SELL, pair, pair.price(TradeSide.SELL), quantity, portfolio, leverage=self._leverage)]
 
-            if action == 0:
+            case 2:
+                # BUY2: buy amount*2 
+
+                quantity = get_asset_quantity(self.amount*2, self._leverage, pair, TradeSide.BUY)
+                return [derivative_order(TradeSide.BUY, pair, pair.price(TradeSide.BUY), quantity, portfolio, leverage=self._leverage)]
+
+            case 3:
+                # SELL2: sell amount*2
+                quantity = get_asset_quantity(self.amount*2, self._leverage, pair, TradeSide.BUY)
+                return [derivative_order(TradeSide.SELL, pair, pair.price(TradeSide.SELL), quantity, portfolio, leverage=self._leverage)]
+
+            case 4:
+            # BUY_LIMIT
+                # check that we doesn't have unexecuted buy limit order, if so return []
+                b = self.broker
+                a_limits = self.active_limits
                 if contracts_num > 0:
-                    if portfolio.contracts[0].side == TradeSide.BUY:
-                        print('do nothing we already stay LONG')
+                    if contract.side == TradeSide.BUY:
+                        # print('do nothing we already stay LONG')
                         return []
-
-                    if portfolio.contracts[0].side == TradeSide.SELL:
-                        print('close LONG open SHORT')
-                        return [derivative_order(TradeSide('buy'), pair, pair.price(TradeSide.BUY), self.amount*2, portfolio, leverage=self._leverage)]
-                else:
-                    return [derivative_order(TradeSide('buy'), pair, pair.price(TradeSide.BUY), self.amount, portfolio, leverage=self._leverage)]
-
-            if action == 1:
-                if contracts_num > 0:
-                    if portfolio.contracts[0].side == TradeSide.SELL:
-                        print('do nothing we already stay SHORT')
+                elif a_limits:
+                    if len(a_limits) > 1:
+                        raise Exception(f'len(self.active_limits) > 1: {len(a_limits)}')
+                    if a_limits[0][next(iter(a_limits[0]))].is_buy:
                         return []
-
-                    if portfolio.contracts[0].side == TradeSide.BUY:
-                        print('close SHORT open LONG')
-                        # then go to broker where all of this is processing
-                        return [derivative_order(TradeSide.SELL, pair, pair.price(TradeSide.SELL), self.amount * 2, portfolio, leverage=self._leverage)]
                 else:
-                    return [derivative_order(TradeSide.SELL, pair, pair.price(TradeSide.SELL), self.amount, portfolio, leverage=self._leverage)]
+                    # here we also have to check do we have limit order here?
 
-            if action == 2:
+                    quantity = get_asset_quantity(self.amount, self._leverage, pair, TradeSide.BUY)
+                    cp = pair.price(TradeSide.BUY)
+                    cpsell = pair.price(TradeSide.SELL)
+                    return [derivative_order(TradeSide.BUY, pair, Decimal('0.005'), quantity, portfolio, leverage=self._leverage, trade_type=TradeType.LIMIT)]
+
+
+
+            case 5:
+            # BUY_STOP
+            #
+                raise NotImplementedError('sorry..')
+                return []
+
+            case 6:
+            # SELL_LIMIT
+            #
+                raise NotImplementedError('sorry..')
+                return []
+
+            case 7:
+            # SELL_STOP
+            #
+                raise NotImplementedError('sorry..')
+                return []
+
+            case 8:
                 if contracts_num > 0:
                     if portfolio.contracts[0].side == TradeSide.BUY:
-                        return [derivative_order(TradeSide.SELL, pair, pair.price(TradeSide.SELL), portfolio.contracts[0].order.margin.size, portfolio, leverage=self._leverage)]
+                        return [derivative_order(TradeSide.SELL, pair, pair.price(TradeSide.SELL), portfolio.contracts[0].quantity, portfolio, leverage=self._leverage)]
 
                     if portfolio.contracts[0].side == TradeSide.SELL:
-                        return [derivative_order(TradeSide.BUY, pair, pair.price(TradeSide.SELL), portfolio.contracts[0].order.margin.size, portfolio, leverage=self._leverage)]
-
+                        return [derivative_order(TradeSide.BUY, pair, pair.price(TradeSide.SELL), portfolio.contracts[0].quantity, portfolio, leverage=self._leverage)]
                 else:
                     return []
+
+            case _:
+                raise Exception(f'Unknown action: {action}')
 
         for listener in self.listeners:
             listener.on_action(action)
@@ -613,12 +737,169 @@ class ManagedRiskOrders(TensorTradeActionScheme):
         return [order]
 
 
+
+class MSBSCMT(MultySymbolBSH):
+    """Multy-Symbol-Buy-Sell-Close-Margin-Trade
+        action scheme for multiple symbols environments with margin trade support
+
+        3 actions:
+
+            buy: long position (0)
+                close position if u have short
+                and then open long
+
+            sell: short position (1)
+                close position if u have long
+                and then open short
+
+            close: close position (2)
+                close position if u have any
+                and stay away from market
+
+        * scheme allows to hold not more then one contract!!
+
+    Parameters
+    ----------
+    cash : `Wallet`
+        The wallet to hold funds in the base intrument.
+    asset : `Wallet`
+        The wallet to hold funds in the quote instrument.
+    """
+
+    registered_name = "msbscmt"
+
+    # def __init__(self, cash: 'Wallet', asset: 'Wallet'):
+    def __init__(self, config):
+        super().__init__(config)
+        self.config = config
+        self._leverage = get_param(config['params'],'leverage')['value']
+        self.listeners = []
+        self.action = 2
+        self.started = False
+        self.amount = config['amount']
+
+    @property
+    def action_space(self):
+        return Discrete(3)
+
+    def attach(self, listener):
+        self.listeners += [listener]
+        return self
+
+    @property
+    def leverage(self):
+        """Getter for price"""
+        return self._leverage
+
+    @leverage.setter
+    def leverage(self, value: int):
+        """Setter for price"""
+        if value < 0:
+            raise ValueError("Leverage cannot be negative")
+        self._leverage = value
+
+    def get_orders(self, action: int, portfolio: 'Portfolio') -> 'Order':
+        order = None
+        current_symbol_code = self.config["current_symbol_code"]
+        cash = portfolio.wallets[0]
+        asset = portfolio.wallets[current_symbol_code+1]
+        contracts_num = len(portfolio.contracts)
+        self.action = action
+
+        order = None
+        current_symbol_code = self.config["current_symbol_code"]
+        cash = portfolio.wallets[0]
+        asset = portfolio.wallets[current_symbol_code+1]
+        pair = portfolio.exchange_pairs[current_symbol_code]
+
+        if 5 > 3:
+            if contracts_num > 1:
+                print('So much contracts')
+                raise Exception(f'contracts_num > 1: {contracts_num}')
+
+            if contracts_num > 0:
+                contract = portfolio.contracts[0]
+
+            if action == 0:
+                if contracts_num > 0:
+                    if contract.side == TradeSide.BUY:
+                        # print('do nothing we already stay LONG')
+                        return []
+
+                    if contract.side == TradeSide.SELL:
+                        print('close LONG open SHORT')
+                        quantity = get_asset_quantity(self.amount*2, self._leverage, pair, TradeSide.BUY)
+                        # return [derivative_order(TradeSide('buy'), pair, pair.price(TradeSide.BUY), self.amount*2, portfolio, leverage=self._leverage)]
+                        return [derivative_order(TradeSide('buy'), pair, pair.price(TradeSide.BUY), quantity, portfolio, leverage=self._leverage)]
+                else:
+                    quantity = get_asset_quantity(self.amount, self._leverage, pair, TradeSide.BUY)
+                    # return [derivative_order(TradeSide('buy'), pair, pair.price(TradeSide.BUY), self.amount, portfolio, leverage=self._leverage)]
+                    return [derivative_order(TradeSide('buy'), pair, pair.price(TradeSide.BUY), quantity, portfolio, leverage=self._leverage)]
+
+            if action == 1:
+                if contracts_num > 0:
+                    if portfolio.contracts[0].side == TradeSide.SELL:
+                        # print('do nothing we already stay SHORT')
+                        return []
+
+                    if portfolio.contracts[0].side == TradeSide.BUY:
+                        print('close SHORT open LONG')
+                        # then go to broker where all of this is processin
+                        quantity = get_asset_quantity(self.amount*2, self._leverage, pair, TradeSide.SELL)
+                        return [derivative_order(TradeSide.SELL, pair, pair.price(TradeSide.SELL), quantity, portfolio, leverage=self._leverage)]
+                else:
+                    quantity = get_asset_quantity(self.amount, self._leverage, pair, TradeSide.SELL)
+                    return [derivative_order(TradeSide.SELL, pair, pair.price(TradeSide.SELL), quantity, portfolio, leverage=self._leverage)]
+
+            if action == 2:
+                if contracts_num > 0:
+                    if portfolio.contracts[0].side == TradeSide.BUY:
+                        # return [derivative_order(TradeSide.SELL, pair, pair.price(TradeSide.SELL), portfolio.contracts[0].order.quantity.size, portfolio, leverage=self._leverage)]
+                        return [derivative_order(TradeSide.SELL, pair, pair.price(TradeSide.SELL), contract.quantity, portfolio, leverage=self._leverage)]
+
+                    if portfolio.contracts[0].side == TradeSide.SELL:
+                        # return [derivative_order(TradeSide.BUY, pair, pair.price(TradeSide.SELL), portfolio.contracts[0].order.quantity.size, portfolio, leverage=self._leverage)]
+                        return [derivative_order(TradeSide.BUY, pair, pair.price(TradeSide.SELL), contract.quantity, portfolio, leverage=self._leverage)]
+
+                else:
+                    return []
+
+        for listener in self.listeners:
+            listener.on_action(action)
+
+        return [order]
+
+    def force_sell(self):
+        # *forced by episode ending
+        action = 1
+        orders = self.get_orders(action, self.portfolio)
+
+        for order in orders:
+            if order:
+                logging.info('Step {}: {} {}'.format(order.step, order.side, order.quantity))
+                self.broker.submit(order)
+
+        self.broker.update()
+
+    def reset(self):
+        super().reset()
+        self.action = 1
+        self.started = False
+
+
+def get_asset_quantity(margin, leverage, pair, side):
+    # quantity = margin * leverage * pair.pair.quote
+    raw_qty = margin * leverage / pair.price(side)
+    step = Decimal(str(pair.step_size))
+    qty = (Decimal(str(raw_qty)) // step) * step * pair.pair.quote
+    return qty.quantize()
+
+
 _registry = {
     'bsh': BSH,
     'simple': SimpleOrders,
     'managed-risk': ManagedRiskOrders,
 }
-
 
 def get(identifier: str) -> 'ActionScheme':
     """Gets the `ActionScheme` that matches with the identifier.
