@@ -26,6 +26,17 @@ class ExchangePair:
         quantization = Decimal(10) ** -self.pair.quote.precision
         return Decimal(self.price(side) ** Decimal(-1)).quantize(quantization)
 
+    @property
+    def options(self):
+        return self.exchange.options.config[f'{self.pair.quote}{self.pair.base}']
+
+    @property
+    def step_size(self):
+        for f in self.options['info']['filters']:
+            if f['filterType'] == 'LOT_SIZE':
+                step_size = float(f['stepSize'])
+        return step_size
+
     def __hash__(self):
         return hash(str(self))
 

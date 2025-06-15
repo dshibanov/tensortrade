@@ -187,51 +187,6 @@ def make_flat_feed(length=1000, price_value=100):
 
 
 
-def make_synthetic_symbol(config):
-
-    from datetime import date
-    from dateutil.relativedelta import relativedelta, MO
-
-    today = date.today()
-    print(today)
-    last_monday = today + relativedelta(weekday=MO(-1))
-    print(last_monday)
-
-    rd = relativedelta(minutes=60*24)
-    print(rd)
-    print(today+rd)
-
-
-    rd = relativedelta(minutes=60*24*7)
-    print(rd)
-    print(today+rd)
-    # return
-
-    symbol = config
-    end_of_episode = pd.Series(np.full(config["num_of_samples"]+1, False))
-
-    print('end_of_episode ', end_of_episode)
-
-    if config["process"] == SIN:
-        symbol["feed"] = make_sin_feed(symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
-    elif config["process"] == FLAT:
-        symbol["feed"] = make_flat_feed(symbol["num_of_samples"]).assign(end_of_episode=end_of_episode.values)
-    else:
-        raise Exception("Wrong symbol name")
-
-    if config.get("shatter_on_episode_on_creation", False) == True:
-        ep_lengths = get_episodes_lengths(symbol["feed"])
-        print('ep_lengths ', ep_lengths)
-        end_of_episode_index=0
-        for i, l in enumerate(ep_lengths,0):
-            end_of_episode_index += l
-            symbol["feed"].iloc[end_of_episode_index,symbol["feed"].columns.get_loc('end_of_episode')] = True
-
-    # here was SettingWithCopyWarning.. 
-    symbol["feed"].iloc[-1,symbol["feed"].columns.get_loc('end_of_episode')] = True
-    symbol["feed"].index = pd.date_range(start=config.get('start_date', '1/1/2018'), freq=config.get('period','1d'), periods=len(symbol['feed'].index))
-    symbol["feed"]["symbol_code"] = symbol["code"]
-    return symbol
 
 def get_episodes_lengths(feed):
     lens = []

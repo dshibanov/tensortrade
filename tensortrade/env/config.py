@@ -358,6 +358,8 @@ class EnvConfig:
             return _class(self.config)
         elif class_name == 'MSBSCMT':
             return _class(self.config)
+        elif class_name == 'TestActionScheme':
+            return _class(self.config)
         else:
             params = {p['name']: p['value'] for p in params}
 
@@ -701,7 +703,7 @@ class EnvConfig:
                 ,action_scheme=action_scheme
                 ,reward_scheme=reward_scheme
                 ,renderer=[]
-                , window_size=self.gp("window_size")['value']
+                ,window_size=self.gp("window_size")['value']
                 ,max_allowed_loss=self.gp("max_allowed_loss")['value']
                 ,config=config
                 ,informer=default.informers.MultySymbolEnvInformer()

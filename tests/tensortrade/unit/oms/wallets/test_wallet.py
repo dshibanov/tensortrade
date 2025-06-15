@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from tensortrade.core.exceptions import InsufficientFunds, IncompatibleInstrumentOperation
 from tensortrade.oms.exchanges import Exchange
-from tensortrade.oms.wallets import Wallet
+from tensortrade.oms.wallets import Wallet, Portfolio
 from tensortrade.oms.instruments import USD, BTC, Quantity, ExchangePair
 
 

@@ -1025,7 +1025,7 @@ yfinance = "^0.2.28"
 type = "git"
 url = "https://github.com/dshibanov/finplot.git"
 reference = "HEAD"
-resolved_reference = "8e9f676dff43adf799d6e7cca58123049d495934"
+resolved_reference = "e1f9fc4350bb92850bbba1c17891e92d119e6779"
 
 [[package]]
 name = "flatbuffers"
