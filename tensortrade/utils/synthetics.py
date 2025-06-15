@@ -116,6 +116,8 @@ def make_synthetic_symbol(config):
         print('ohlcv')
         feed = make_ohlcv(feed)
 
+    feed[['close', 'open', 'low', 'high']] = feed[['close', 'open', 'low', 'high']] / config.get('y_scale', 10000)
+
     symbol['quotes'] = {}
     symbol['quotes'][f'{min_timeframe}'] = feed
 
