@@ -178,7 +178,7 @@ class Exchange(Component, TimedIdentifiable):
             order=order,
             base_wallet=portfolio.get_wallet(self.id, order.pair.base),
             quote_wallet=portfolio.get_wallet(self.id, order.pair.quote),
-            current_price=order.price,
+            current_price=order.exchange_pair.exchange.quote_price(order.exchange_pair.pair),
             options=self.options,
             clock=self.clock
         )
