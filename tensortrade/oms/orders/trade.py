@@ -21,6 +21,7 @@ class TradeType(Enum):
 
     LIMIT: str = "limit"
     MARKET: str = "market"
+    STOP: str = "stop"
 
     def __str__(self):
         return str(self.value)

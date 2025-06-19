@@ -192,7 +192,7 @@ def test_on_fill_with_complex_order(mock_trade_class,
                   portfolio=portfolio,
                   price=Decimal(7000.00))
 
-    risk_criteria = Stop("down", 0.03) ^ Stop("up", 0.02)
+    risk_criteria = OldStop("down", 0.03) ^ OldStop("up", 0.02)
 
     risk_management = OrderSpec(side=TradeSide.SELL if side == TradeSide.BUY else TradeSide.BUY,
                                 trade_type=TradeType.MARKET,

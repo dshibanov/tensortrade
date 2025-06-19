@@ -127,7 +127,7 @@ def test_is_executable_on(mock_exchange_class):
                   quantity=1 * BTC,
                   portfolio=portfolio,
                   price=Decimal(7000.00),
-                  criteria=Stop("down", 0.03))
+                  criteria=OldStop("down", 0.03))
 
     exchange.quote_price = mock.Mock(return_value=Decimal(1 - 0.031) * order.price)
     assert order.is_executable
@@ -416,7 +416,7 @@ def test_complete_complex_order(mock_trade_class,
                   portfolio=portfolio,
                   price=Decimal(7000.00))
 
-    risk_criteria = Stop("down", 0.03) ^ Stop("up", 0.02)
+    risk_criteria = OldStop("down", 0.03) ^ OldStop("up", 0.02)
 
     risk_management = OrderSpec(side=TradeSide.SELL if side == TradeSide.BUY else TradeSide.BUY,
                                 trade_type=TradeType.MARKET,

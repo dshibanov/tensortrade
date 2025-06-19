@@ -71,7 +71,7 @@ def test_and(mock_order_class, mock_exchange_class):
 def test_or(mock_order_class, mock_exchange_class):
 
     # Test Initialization
-    criteria = Stop("down", 0.03) | Stop("up", 0.03)
+    criteria = OldStop("down", 0.03) | OldStop("up", 0.03)
     assert criteria
     assert isinstance(criteria, Criteria)
 
@@ -114,7 +114,7 @@ def test_or(mock_order_class, mock_exchange_class):
 def test_xor(mock_order_class, mock_exchange_class):
 
     # Test Initialization
-    criteria = Stop("down", 0.03) ^ Stop("up", 0.03)
+    criteria = OldStop("down", 0.03) ^ OldStop("up", 0.03)
     assert criteria
     assert isinstance(criteria, Criteria)
 

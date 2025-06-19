@@ -157,6 +157,30 @@ class Limit(Criteria):
     def __str__(self) -> str:
         return f"<Limit: price={self.limit_price}>"
 
+class Stop(Criteria):
+    """An order criteria that allows execution when the quote price for a
+    trading pair is at or below a specific price, hidden from the public
+    order book.
+
+    Parameters
+    ----------
+    stop_price : float
+        The quote price to check for execution.
+    """
+
+    def __init__(self, stop_price: float) -> None:
+        self.stop_price = stop_price
+
+    def check(self, order: 'Order', exchange: 'Exchange') -> bool:
+        price = exchange.quote_price(order.pair)
+
+        buy_satisfied = (order.side == TradeSide.BUY and price >= self.stop_price)
+        sell_satisfied = (order.side == TradeSide.SELL and price <= self.stop_price)
+
+        return buy_satisfied or sell_satisfied
+
+    def __str__(self) -> str:
+        return f"<Stop: price={self.stop_price}>"
 
 class StopDirection(Enum):
     """An enumeration for the directions of a stop criteria."""
@@ -168,7 +192,7 @@ class StopDirection(Enum):
         return str(self.value)
 
 
-class Stop(Criteria):
+class OldStop(Criteria):
     """An order criteria that allows execution when the quote price for a
     trading pair is above or below a specific price.
 
