@@ -1465,7 +1465,10 @@ def test_take_profit(config):
 
 
 def test_linked(config):
-    # _max, _min = synth['quotes'][synth['timeframes'][0]]['close'].max(), synth['quotes'][synth['timeframes'][0]]['close'].min()
+
+    from tensortrade.env.default.actions import StopLossPercent, TakeProfitPercent
+    config['env']['action_scheme']['stop_loss_policy'] = StopLossPercent(percent=25)
+    config['env']['action_scheme']['take_profit_policy'] = TakeProfitPercent(percent=35)
     env_conf = econf.EnvConfig(config['env'])
     env = env_conf.build()
     obs_header = get_obs_header(env)
@@ -1498,8 +1501,6 @@ def test_linked(config):
         close_idx = obs_header.index(f"0_{config['env']['data']['timeframes'][0]}_close")
         cc = obs[close_idx]
 
-
-        print(f's: {step}')
         if abs(cc - 0.005) < 0.0005 and trade_num == 0:
             # BUY SL/TP
             action = 9
@@ -2072,11 +2073,9 @@ if __name__ == "__main__":
     # test_stop_loss(config())
     # test_take_profit(config())
 
-    # test_linked(action_test_config())
-
+    test_linked(action_test_config())
+    # test_margin_call(action_test_config())
     # test_commissions()
-    # test_funding_rates()
-    test_margin_call(action_test_config())
     # test_funding_rates()
 
 
