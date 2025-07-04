@@ -24,56 +24,20 @@ from tensortrade.core.exceptions import InvalidOrderQuantity
 from tensortrade.oms.instruments import Quantity, ExchangePair
 from tensortrade.oms.orders import Trade, TradeSide, TradeType
 
-# from tensortrade.oms.wallets.contract import Contract
+
+from tensortrade.core.exceptions import (
+    InsufficientFunds,
+    DoubleLockedQuantity,
+    DoubleUnlockedQuantity,
+    QuantityNotLocked
+)
+
 import copy
 
-class Contract:
-    def __init__(
-        self,
-        order: "Order"
-    ):
-        self.order = order
 
 
 
-    @property
-    def side(self) -> float:
-        return self.order.side
 
-    @property
-    def value(self) -> float:
-        current_price = self.order.exchange_pair.exchange.quote_price(self.order.exchange_pair.pair)
-        # value_usdt = (self.order.margin * self.order.leverage).size * (
-        #             current_price / self.order.price)
-
-        # pos_size = self.order.margin.size * self.order.leverage * self.order.price
-        if self.side == TradeSide.BUY:
-            pnl = (current_price - self.order.price) * self.order.position_size
-        elif self.side == TradeSide.SELL:
-            pnl = (self.order.price - current_price) * self.order.position_size
-        else:
-            raise ValueError(f"Invalid direction: {self.side}")
-
-        pnl_usdt = pnl / current_price
-
-        return float(pnl_usdt)
-
-    def close(self):
-        w = self.order.portfolio.get_wallet(
-            self.order.exchange_pair.exchange.id,
-            self.order.instrument
-        )
-
-        self.margin = w.unlock(self.order.margin, "RELEASE MARGIN DUE CLOSE")
-        v = self.value
-        w.deposit(Quantity(self.order.instrument, v), "PROFIT FROM CONTRACT CLOSE")
-
-    def __repr__(self):
-        return (f"<Contract {self.symbol} ({self.contract_type.value}) "
-                f"{self.option_type.value if self.option_type != OptionType.NA else ''} "
-                f"{self.strike if self.strike else ''} "
-                f"exp: {self.expiration.strftime('%Y-%m-%d')} "
-                f"underlying: {self.underlying}>")
 
 class OrderStatus(Enum):
     """An enumeration for the status of an order."""
@@ -143,12 +107,16 @@ class Order(TimedIdentifiable, Observable):
                  quantity: 'Quantity',
                  portfolio: 'Portfolio',
                  price: float,
-                 leverage: int,
+                 leverage: int = None,
                  criteria: 'Callable[[Order, Exchange], bool]' = None,
                  path_id: str = None,
                  start: int = None,
                  end: int = None,
-                 derivative: bool = False):
+                 stop_loss: float = None,
+                 take_profit: float = None,
+                 derivative: bool = False,
+                 liquidation = False,
+                 broker = None):
         super().__init__()
         Observable.__init__(self)
 
@@ -170,13 +138,18 @@ class Order(TimedIdentifiable, Observable):
         self.end = end
         self.status = OrderStatus.PENDING
         self.derivative = derivative
-
         self._specs = []
+        self._linked = []
         self.trades = []
+        self._one_cancel_other = []
+        self.broker = broker
+        self.liquidation = liquidation
 
 
         if self.derivative:
             self.instrument = self.portfolio.base_instrument
+            self.quantity = quantity.quantize()
+            self.margin = ((self.quantity.size/self.leverage)*self.price*self.portfolio.base_instrument).quantize()
         else:
             self.instrument = self.side.instrument(self.exchange_pair.pair)
 
@@ -185,61 +158,17 @@ class Order(TimedIdentifiable, Observable):
             self.instrument
         )
 
-
-
         if self.path_id not in wallet.locked.keys():
             if self.derivative:
-
-                if len(self.portfolio.contracts) == 0:
-                    self.margin = self.get_adjusted_margin()
-                    self.margin = wallet.lock(self.margin, self,
-                                                "LOCK FOR DERIVATIVE CONTRACT")
-                    c = Contract(self)
-                    self.portfolio.contracts.append(c)
-                elif len(self.portfolio.contracts) == 1:
-                    print(self.portfolio.contracts[0].value)
-
-                    if self.portfolio.contracts[0].order.side == self.side:
-                        # the same side, add
-                        ap = average_entry_price([self.portfolio.contracts[0].order, self])
-                    else:
-                        # different side, subtract
-                        self.quantity.size = self.quantity.size - self.portfolio.contracts[0].order.margin.size
-                        self.portfolio.contracts.pop().close()
-                        if self.quantity.size > 0:
-                            self.margin = self.get_adjusted_margin()
-                            self.margin = wallet.lock(self.margin, self,
-                                                      "LOCK FOR DERIVATIVE CONTRACT")
-                            self.portfolio.contracts.append(Contract(self))
-                        elif self.quantity.size < 0:
-                            raise Exception(f'quantity size is less then 0: {self.quantity.size}')
-
-
-
-                else:
-                    raise Exception(f'too many contracts: {len(self.portfolio.contracts)}')
+                pass
             else:
                 self.quantity = wallet.lock(quantity, self, "LOCK FOR ORDER")
 
-
-
-
-
-
-
         # here? maybe we need to call this in case if leverage is None??
-        self.remaining = self.quantity
-
-
-    # TODO: add test_get_adjusted_margin()
-    def get_adjusted_margin(self) -> 'Decimal':
-        self.position_size = int(self.price * (self.quantity * self.leverage).size)
         if self.derivative:
-            self.quantity.size = self.position_size / (self.price * self.leverage)
-            return self.quantity.quantize()
+            self.remaining = self.quantity
         else:
-            return Decimal(str('0'))
-
+            self.remaining = self.quantity
 
     @property
     def size(self) -> 'Decimal':
@@ -247,6 +176,10 @@ class Order(TimedIdentifiable, Observable):
         if not self.quantity or self.quantity is None:
             return Decimal(-1)
         return self.quantity.size
+
+    @property
+    def current_price(self):
+        return self.exchange_pair.exchange.quote_price(self.exchange_pair.pair)
 
     @property
     def pair(self) -> 'TradingPair':
@@ -362,6 +295,21 @@ class Order(TimedIdentifiable, Observable):
         if not self.derivative:
             filled = trade.quantity + trade.commission
             self.remaining -= filled
+        else:
+            wallet = self.portfolio.get_wallet(
+                self.exchange_pair.exchange.id,
+                self.instrument
+            )
+
+            if trade.is_liquidation:
+            	q = Quantity(self.instrument, wallet.balance.size) if wallet.balance.size < trade.commission.size 
+			else trade.commission
+                wallet.withdraw(q, "LIQUIDATION FEES")
+            else:
+                wallet.withdraw(trade.commission, "TAKER FEES")
+
+            filled = self.quantity
+            self.remaining -= filled
 
         self.trades += [trade]
 
@@ -379,18 +327,21 @@ class Order(TimedIdentifiable, Observable):
         """
         self.status = OrderStatus.FILLED
 
-        order = None
-
         if self._specs:
-            order_spec = self._specs.pop()
-            order = order_spec.create_order(self)
+            print('oh, we have specs..')
+            while self._specs:
+                order_spec = self._specs.pop()
+                order = order_spec.create_order(self)
+                self._linked.append(order)
+
+            for i, o in enumerate(self._linked):
+                o._one_cancel_other = self._linked[:i] + self._linked[i+1:]
 
         for listener in self.listeners or []:
             listener.on_complete(self)
 
         self.listeners = []
-
-        return order or self.release("COMPLETED")
+        return self._linked or self.release("COMPLETED")
 
     def cancel(self, reason: str = "CANCELLED") -> None:
         """Cancels an order.
@@ -423,10 +374,11 @@ class Order(TimedIdentifiable, Observable):
             if self.path_id in wallet.locked.keys():
                 quantity = wallet.locked[self.path_id]
 
-                if quantity is not None:
-                    wallet.unlock(quantity, reason)
+                if not self.derivative:
+                    if quantity is not None:
+                        wallet.unlock(quantity, reason)
 
-                wallet.locked.pop(self.path_id, None)
+                    wallet.locked.pop(self.path_id, None)
 
     def to_dict(self) -> dict:
         """Creates a dictionary representation of the order.

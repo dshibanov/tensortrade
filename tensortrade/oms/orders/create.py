@@ -23,9 +23,13 @@ from decimal import Decimal
 def derivative_order(side: "TradeSide",
                  exchange_pair: "ExchangePair",
                  price: float,
-                 size: float,
+                 size: "Quantity",
                  portfolio: "Portfolio",
-                 leverage: int) -> "Order":
+                 leverage: int,
+                 stop_loss: float = None,
+                 take_profit: float = None,
+                 trade_type = TradeType.MARKET,
+                 liquidation = False) -> "Order":
     """Creates a market order.
 
     Parameters
@@ -46,17 +50,63 @@ def derivative_order(side: "TradeSide",
     `Order`
         A market order.
     """
+
+
+    specs = []
+    if stop_loss:
+        specs.append(OrderSpec(
+            side=TradeSide.SELL if side == TradeSide.BUY else TradeSide.BUY,
+            trade_type=TradeType.STOP,
+            leverage=leverage,
+            price = stop_loss,
+            criteria = Stop(stop_price=stop_loss), # if (side == TradeSide.BUY) else Limit(limit_price=stop_loss),
+            exchange_pair=exchange_pair
+        ))
+
+    if take_profit:
+        specs.append(OrderSpec(
+            side=TradeSide.SELL if side == TradeSide.BUY else TradeSide.BUY,
+            trade_type=TradeType.LIMIT,
+            leverage=leverage,
+            price = take_profit,
+            criteria = Limit(limit_price=take_profit), # if (side == TradeSide.BUY) else Stop(stop_price=take_profit),
+            exchange_pair=exchange_pair
+        ))
+
+        if take_profit < 0 or stop_loss < 0:
+            raise Exception(f'Negative sl/tp values tp: {take_profit} sl: {stop_loss}')
+
+    criteria = None
+    if trade_type == TradeType.LIMIT:
+        # price must be float..
+        criteria = Limit(limit_price=price)
+
+    elif trade_type == TradeType.STOP:
+        # price must be float..
+        criteria = Stop(stop_price=price)
+
+
+
     order = Order(
         step=portfolio.clock.step,
         side=side,
-        trade_type=TradeType.MARKET,
+        trade_type=trade_type,
         exchange_pair=exchange_pair,
         price=price,
-        quantity=(size * portfolio.base_instrument),
+        # quantity=(size * portfolio.base_instrument),
+        quantity=size,
         portfolio=portfolio,
         derivative=True,
-        leverage=leverage
+        stop_loss=stop_loss,
+        take_profit=take_profit,
+        leverage=leverage,
+        criteria=criteria,
+        liquidation=liquidation
     )
+
+    if specs:
+        for s in specs:
+            order.add_order_spec(s)
 
     return order
 
@@ -258,7 +308,7 @@ def risk_managed_order(side: "TradeSide",
         portfolio=portfolio
     )
 
-    risk_criteria = Stop("down", down_percent) ^ Stop("up", up_percent)
+    risk_criteria = OldStop("down", down_percent) ^ OldStop("up", up_percent)
     risk_management = OrderSpec(
         side=TradeSide.SELL if side == TradeSide.BUY else TradeSide.BUY,
         trade_type=TradeType.MARKET,

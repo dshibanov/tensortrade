@@ -38,11 +38,17 @@ class OrderSpec(Identifiable):
                  side: 'TradeSide',
                  trade_type: 'TradeType',
                  exchange_pair: 'ExchangePair',
+                 price = None,
+                 derivative = True,
+                 leverage = None,
                  criteria: 'Callable[[Order, Exchange], bool]' = None):
         self.side = side
         self.type = trade_type
         self.exchange_pair = exchange_pair
         self.criteria = criteria
+        self.price = price
+        self.derivative = derivative
+        self.leverage = leverage
 
     def create_order(self, order: 'Order') -> 'Order':
         """Creates an order following from another order.
@@ -59,25 +65,45 @@ class OrderSpec(Identifiable):
             parameters of `order`.
         """
 
-        wallet_instrument = self.side.instrument(self.exchange_pair.pair)
+        if order.derivative:
+            wallet_instrument = self.side.instrument(self.exchange_pair.pair)
+            exchange = order.exchange_pair.exchange
 
-        exchange = order.exchange_pair.exchange
-        wallet = order.portfolio.get_wallet(exchange.id, instrument=wallet_instrument)
-        quantity = wallet.locked.get(order.path_id, None)
+            q = order.quantity
+            return Order(step=exchange.clock.step,
+                         side=self.side,
+                         trade_type=self.type,
+                         exchange_pair=self.exchange_pair,
+                         quantity=q,
+                         derivative=self.derivative,
+                         portfolio=order.portfolio,
+                         # price=self.exchange_pair.price,
+                         price=self.price,
+                         leverage=self.leverage,
+                         criteria=self.criteria,
+                         end=order.end,
+                         path_id=order.path_id)
+        else:
+            wallet_instrument = self.side.instrument(self.exchange_pair.pair)
 
-        if not quantity or quantity.size == 0:
-            return None
+            exchange = order.exchange_pair.exchange
+            wallet = order.portfolio.get_wallet(exchange.id, instrument=wallet_instrument)
+            quantity = wallet.locked.get(order.path_id, None)
 
-        return Order(step=exchange.clock.step,
-                     side=self.side,
-                     trade_type=self.type,
-                     exchange_pair=self.exchange_pair,
-                     quantity=quantity,
-                     portfolio=order.portfolio,
-                     price=self.exchange_pair.price,
-                     criteria=self.criteria,
-                     end=order.end,
-                     path_id=order.path_id)
+            if not quantity or quantity.size == 0:
+                return None
+
+            return Order(step=exchange.clock.step,
+                         side=self.side,
+                         trade_type=self.type,
+                         exchange_pair=self.exchange_pair,
+                         quantity=quantity,
+                         derivative=self.derivative,
+                         portfolio=order.portfolio,
+                         price=self.exchange_pair.price,
+                         criteria=self.criteria,
+                         end=order.end,
+                         path_id=order.path_id)
 
     def to_dict(self) -> dict:
         """Creates dictionary representation of specification.

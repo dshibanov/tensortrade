@@ -37,17 +37,20 @@ class StopLossPercent(PlacementPolicy):
     def __init__(self,**kwargs):
         self.percent = kwargs.get('percent', 5)
 
-    def __call__(self):
-        a = 5
-        return a
+    def __call__(self, price = None, side = None):
+        k = self.percent * Decimal('0.01')
+        value = (price * (1 + k)) if side == TradeSide.SELL else (price * (1 - k))
+        return value
+        # return (price*(1 + self.percent*Decimal('0.01'))) if side == TradeSide.SELL else (price*(1 - self.percent*Decimal('0.01')))
 
 class TakeProfitPercent(PlacementPolicy):
     def __init__(self,**kwargs):
         self.percent = kwargs.get('percent', 5)
 
-    def __call__(self):
-        a = 5
-        return a
+    def __call__(self, price = None, side = None):
+        k = self.percent*Decimal('0.01')
+        value = (price*(1+k)) if side == TradeSide.BUY else (price*(1 - k))
+        return value
 
 
 class LimitEntrySimple(PlacementPolicy):
@@ -103,11 +106,12 @@ class TensorTradeActionScheme(ActionScheme):
         super().__init__()
         self.portfolio: 'Portfolio' = None
         self.broker: 'Broker' = Broker()
+        self.broker.action_scheme = self
 
     @property
     def active_limits(self):
-        if self.broker.executed:
-            return [{k:v} for k,v in self.broker.executed.items() if v.is_limit_order and v.is_active]
+        if self.broker.unexecuted:
+            return [u for u in self.broker.unexecuted if u.is_limit_order and u.is_active]
         else:
             return []
 
@@ -353,10 +357,10 @@ class TestActionScheme(MultySymbolBSH):
         self.started = False
         self.amount = config.get('amount', 10)
 
-        self.stop_loss_policy = config.get('stop_loss_policy', StopLossPercent(percent=5))
-        self.take_profit_policy = config.get('take_profit_policy', TakeProfitPercent(percent=5))
-        self.limit_entry_policy = config.get('limit_entry_policy', LimitEntrySimple(percent=5))
-        self.stop_entry_policy = config.get('stop_entry_policy', StopEntrySimple(percent=5))
+        self.stop_loss_policy = config['action_scheme'].get('stop_loss_policy', StopLossPercent(percent=5))
+        self.take_profit_policy = config['action_scheme'].get('take_profit_policy', TakeProfitPercent(percent=5))
+        self.limit_entry_policy = config['action_scheme'].get('limit_entry_policy', LimitEntrySimple(percent=5))
+        self.stop_entry_policy = config['action_scheme'].get('stop_entry_policy', StopEntrySimple(percent=5))
         self.last_action = None
 
     @property
@@ -381,11 +385,12 @@ class TestActionScheme(MultySymbolBSH):
 
     def get_orders(self, action: int, portfolio: 'Portfolio') -> 'Order':
 
-        if self.last_action and self.last_action == action and action not in [4,5,6,7]:
+        if self.last_action and self.last_action == action and action not in [4,5,6,7,9]:
             return []
         else:
             self.last_action = action
 
+        print(f'Ab: {action}')
 
         order = None
         current_symbol_code = self.config["current_symbol_code"]
@@ -407,6 +412,7 @@ class TestActionScheme(MultySymbolBSH):
         asset = portfolio.wallets[current_symbol_code+1]
         pair = portfolio.exchange_pairs[current_symbol_code]
 
+        print(f'A: {action}')
         match action:
             case 0:
             # BUY1
@@ -431,27 +437,48 @@ class TestActionScheme(MultySymbolBSH):
                 quantity = get_asset_quantity(self.amount*2, self._leverage, pair, TradeSide.BUY)
                 return [derivative_order(TradeSide.SELL, pair, pair.price(TradeSide.SELL), quantity, portfolio, leverage=self._leverage)]
 
+
+
+                # 5 sell limit
+                # 6 buy market
+                # 7 sell market
+                # 8 buy stop
+                # 9 sell stop
+
             case 4:
-            # BUY_LIMIT
+                # BUY_LIMIT
                 # check that we doesn't have unexecuted buy limit order, if so return []
                 b = self.broker
                 a_limits = self.active_limits
+
+                limit_price = Decimal('0.005')
+
+
+                # print('a_limits ', a_limits)
                 if contracts_num > 0:
+                    print(f'contracts_num {contracts_num}')
                     if contract.side == TradeSide.BUY:
                         # print('do nothing we already stay LONG')
                         return []
                 elif a_limits:
+                    print(f'len(a_limits) {len(a_limits)}')
                     if len(a_limits) > 1:
                         raise Exception(f'len(self.active_limits) > 1: {len(a_limits)}')
-                    if a_limits[0][next(iter(a_limits[0]))].is_buy:
+                    if a_limits[0].is_buy:
                         return []
                 else:
-                    # here we also have to check do we have limit order here?
-
-                    quantity = get_asset_quantity(self.amount, self._leverage, pair, TradeSide.BUY)
+                    print('FREE')
                     cp = pair.price(TradeSide.BUY)
                     cpsell = pair.price(TradeSide.SELL)
-                    return [derivative_order(TradeSide.BUY, pair, Decimal('0.005'), quantity, portfolio, leverage=self._leverage, trade_type=TradeType.LIMIT)]
+                    # here we also have to check do we have limit order here?
+                    if limit_price > cp:
+                        # move to execute_derivative_order
+                        print(f'invalid price.. lim: {limit_price} cp: {cp}')
+                        return []
+                    else:
+                        print('ok.. derivative order')
+                        quantity = get_asset_quantity(self.amount, self._leverage, pair, TradeSide.BUY)
+                        return [derivative_order(TradeSide.BUY, pair, limit_price, quantity, portfolio, leverage=self._leverage, trade_type=TradeType.LIMIT)]
 
 
 
@@ -464,16 +491,66 @@ class TestActionScheme(MultySymbolBSH):
             case 6:
             # SELL_LIMIT
             #
-                raise NotImplementedError('sorry..')
-                return []
+                b = self.broker
+                a_limits = self.active_limits
+                limit_price = Decimal('0.014')
+                print(' case 6')
+
+
+                # print('a_limits ', a_limits)
+                if contracts_num > 0:
+                    print(f'contracts_num {contracts_num} ! {contract.side}')
+                    if contract.side == TradeSide.SELL:
+                        print(f'contract.PnL: {contract.value} cp: {contract.current_price}')
+                        return []
+                elif a_limits:
+                    print(f'len(a_limits) {len(a_limits)}')
+                    if len(a_limits) > 1:
+                        raise Exception(f'len(self.active_limits) > 1: {len(a_limits)}')
+                    if a_limits[0].is_sell:
+                        return []
+                else:
+                    print('FREE')
+                    cp = pair.price(TradeSide.BUY)
+                    cpsell = pair.price(TradeSide.SELL)
+                    # here we also have to check do we have limit order here?
+                    if limit_price < cp:
+                        # move to execute_derivative_order
+                        print(f'invalid price.. lim: {limit_price} cp: {cp}')
+                        return []
+                    else:
+                        print('ok.. derivative order')
+                        quantity = get_asset_quantity(self.amount, self._leverage, pair, TradeSide.SELL)
+                        return [derivative_order(TradeSide.SELL, pair, limit_price, quantity, portfolio, leverage=self._leverage, trade_type=TradeType.LIMIT)]
 
             case 7:
             # SELL_STOP
-            #
                 raise NotImplementedError('sorry..')
                 return []
 
             case 8:
+                raise NotImplementedError('sorry..')
+                return []
+
+            case 9:
+                # BUY MARKET w TP & SL
+                # return order with takeprofit
+                if contracts_num > 0:
+                    print(f'contracts_num {contracts_num}')
+                    if contract.side == TradeSide.BUY:
+                        # print('do nothing we already stay LONG')
+                        return []
+                else:
+                    quantity = get_asset_quantity(self.amount, self._leverage, pair, TradeSide.BUY)
+                    price = pair.price(TradeSide.BUY)
+                    # return [derivative_order(TradeSide.BUY, pair, price, quantity, portfolio, leverage=self._leverage, trade_type=TradeType.MARKET, stop_loss=StopLossPercent(percent=15)(price, TradeSide.BUY), take_profit=TakeProfitPercent(percent=55)(price, TradeSide.BUY))]
+                    return [derivative_order(TradeSide.BUY, pair, price, quantity, portfolio, leverage=self._leverage,
+                                         trade_type = TradeType.MARKET,
+                                         stop_loss = self.stop_loss_policy(price, TradeSide.BUY),
+                                         take_profit = self.take_profit_policy(price, TradeSide.BUY))]
+
+            case 10:
+                # CLOSE
                 if contracts_num > 0:
                     if portfolio.contracts[0].side == TradeSide.BUY:
                         return [derivative_order(TradeSide.SELL, pair, pair.price(TradeSide.SELL), portfolio.contracts[0].quantity, portfolio, leverage=self._leverage)]
