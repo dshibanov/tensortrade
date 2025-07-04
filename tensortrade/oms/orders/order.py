@@ -302,8 +302,7 @@ class Order(TimedIdentifiable, Observable):
             )
 
             if trade.is_liquidation:
-            	q = Quantity(self.instrument, wallet.balance.size) if wallet.balance.size < trade.commission.size 
-			else trade.commission
+                q = Quantity(self.instrument, wallet.balance.size) if wallet.balance.size < trade.commission.size else trade.commission
                 wallet.withdraw(q, "LIQUIDATION FEES")
             else:
                 wallet.withdraw(trade.commission, "TAKER FEES")

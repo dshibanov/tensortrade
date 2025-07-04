@@ -1,5 +1,6 @@
 
 from tensortrade.env.generic import Stopper, TradingEnv
+from decimal import Decimal
 
 
 class MaxLossStopper(Stopper):
@@ -30,4 +31,5 @@ class MaxLossStopper(Stopper):
     def stop(self, env: 'TradingEnv') -> bool:
         c1 = env.action_scheme.portfolio.profit_loss > self.max_allowed_loss
         c2 = not env.observer.has_next()
-        return c1 or c2
+        c3 = env.action_scheme.portfolio.base_balance.size <= Decimal(str(0))
+        return c1 or c2 or c3

@@ -1,18 +1,14 @@
 import decimal
 import logging
 from decimal import Decimal
-
 from tensortrade.core import Clock
 from tensortrade.oms.wallets import Wallet
 from tensortrade.oms.exchanges import ExchangeOptions
 from tensortrade.oms.orders import Order, Trade, TradeType, TradeSide
-
+from tensortrade.oms.wallets.contract import Contract
 from typing import Union
+from tensortrade.oms.instruments import Quantity
 
-# from tensortrade.oms.wallets.contract import Contract
-
-def get_perp_commission():
-    return 0
 
 def execute_derivative_order(order: 'Order',
                       base_wallet: 'Wallet',
@@ -43,16 +39,60 @@ def execute_derivative_order(order: 'Order',
         The executed trade that was made.
     """
 
-    if order.type == TradeType.LIMIT and order.price < current_price:
-        return None
+    wallet = order.portfolio.get_wallet(
+        order.exchange_pair.exchange.id,
+        order.instrument
+    )
 
-    # filled = order.remaining.contain(order.exchange_pair, order.side)
-    #
-    # if order.type == TradeType.MARKET:
-    #     scale = order.price / max(current_price, order.price)
-    #     filled = scale * filled
 
-    commission = get_perp_commission() #options.commission * filled
+    if 1==1:
+        if len(order.portfolio.contracts) == 0:
+            order.margin = wallet.lock(order.margin, order,
+                                            "LOCK FOR DERIVATIVE CONTRACT")
+            c = Contract(order)
+            order.portfolio.contracts.append(c)
+        elif len(order.portfolio.contracts) == 1:
+            contract = order.portfolio.contracts[0]
+            print(contract)
+            print(order)
+            if contract.order.side == order.side:
+                raise NotImplementedError('sorry..')
+                # the same side, averaging
+                ap = average_entry_price([order.portfolio.contracts[0].order, order])
+            else:
+                if order.quantity > contract.quantity:
+                    # reverse
+                    order.quantity = order.quantity - contract.quantity
+                    order.margin = ((order.quantity.size / order.leverage) * order.price * order.portfolio.base_instrument).quantize()
+                    order.portfolio.contracts.pop().close()
+                    order.margin = wallet.lock(order.margin, order,
+                                              "LOCK FOR DERIVATIVE CONTRACT")
+
+                elif order.quantity < contract.quantity:
+                    # reduce
+                    # raise NotImplementedError('sorry..')
+                    contract.reduce(order.quantity, order)
+                    # contract.quantity = contract.quantity - self.quantity
+
+                elif order.quantity == contract.quantity:
+                    order.portfolio.contracts.pop().close()
+
+                    # self.portfolio.contracts.append(Contract(self))
+                elif order.quantity.size < 0:
+                    raise Exception(f'quantity size is less then 0: {order.quantity.size}')
+
+        else:
+            raise Exception(f'too many contracts: {len(order.portfolio.contracts)}')
+
+
+    def taker_fee(order):
+        return Quantity(order.base_instrument,
+                 order.margin.size * order.leverage * Decimal(str(order.exchange_pair.options['taker'])))
+
+    def liquidation_fee(order):
+        return Quantity(order.base_instrument,
+                        order.margin.size * order.leverage * Decimal(str(order.exchange_pair.options['info']['liquidationFee'])))
+
 
     trade = Trade(
         order_id=order.id,
@@ -63,7 +103,8 @@ def execute_derivative_order(order: 'Order',
         # quantity=transfer.quantity,
         quantity=order.quantity,
         price=order.price,
-        commission=commission
+        commission = liquidation_fee(order) if order.liquidation else taker_fee(order),
+        is_liquidation = order.liquidation
     )
 
     return trade

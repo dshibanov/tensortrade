@@ -50,7 +50,8 @@ class Trade(TimedIdentifiable):
                  trade_type: TradeType,
                  quantity: 'Quantity',
                  price: float,
-                 commission: 'Quantity'):
+                 commission: 'Quantity',
+                 is_liquidation = False):
         """
         Arguments:
             order_id: The id of the order that created the trade.
@@ -75,6 +76,7 @@ class Trade(TimedIdentifiable):
         self.quantity = quantity
         self.price = price
         self.commission = commission
+        self.is_liquidation = is_liquidation
 
     @property
     def base_instrument(self) -> 'Instrument':
